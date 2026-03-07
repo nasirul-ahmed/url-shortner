@@ -1,6 +1,6 @@
 // import { FastifyReply } from 'fastify';
-// import { ErrorCode } from '../errors/AppError';
-// import { IApiResponse } from "../interfaces"
+// // import { ErrorCode } from '../errors';
+// import { IApiResponse } from '../interfaces';
 
 // /**
 //  * Standardized API response helpers.

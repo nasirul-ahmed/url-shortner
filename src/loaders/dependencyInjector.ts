@@ -1,8 +1,14 @@
 import 'reflect-metadata';
 import Container from 'typedi';
-import { logger } from '../utils/logger';
+import { AppLogger } from '../services/logger';
 
-export async function initializeDependencies({ models }: { models: { name: string; model: any }[] }): Promise<void> {
+export async function initializeDependencies({
+  models,
+  logger,
+}: {
+  models: { name: string; model: any }[];
+  logger: AppLogger;
+}): Promise<void> {
   // Load all the models into the container first, so they're available for repositories and services
   models.forEach((model) => Container.set(model.name, model));
 

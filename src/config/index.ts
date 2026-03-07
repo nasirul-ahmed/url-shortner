@@ -5,6 +5,9 @@ import 'reflect-metadata';
  * with sensible production defaults.
  */
 export const config = {
+  logs: {
+    level: process.env.LOG_LEVEL || 'info',
+  },
   app: {
     port: parseInt(process.env.PORT || '3000', 10),
     nodeEnv: process.env.NODE_ENV || 'development',
@@ -13,7 +16,9 @@ export const config = {
     instanceId: process.env.INSTANCE_ID || `instance-${process.pid}`,
   },
 
+  
   redis: {
+    redisUrl: process.env.REDIS_URL,
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379', 10),
     password: process.env.REDIS_PASSWORD || undefined,

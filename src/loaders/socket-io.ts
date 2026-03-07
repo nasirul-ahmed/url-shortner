@@ -1,10 +1,9 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
-import Redis from 'ioredis';
 import Container from 'typedi';
-import { REDIS_CLIENT, REDIS_SUBSCRIBER } from './redis';
-import { logger } from '../utils/logger';
+import { AppLogger } from '../services/logger/app-logger';
+import { Redis } from '../redis';
 
 /**
  * DI token for the Socket.io server instance.
@@ -19,8 +18,18 @@ export const SOCKET_IO_SERVER = 'SocketIOServer';
  * Must be called AFTER:
  *   - loaders/redis.ts  (Redis clients must be in container)
  *   - loaders/fastify.ts (httpServer must exist)
+ *
+ * @param httpServer - HTTP server instance to attach Socket.io to
+ * @param pubClient - Redis client for publishing messages
+ * @param subClient - Redis subscriber client for receiving messages (must be separate connection)
+ * @param logger - AppLogger instance
  */
-export async function initSocketIO(httpServer: HttpServer, pub: Redis, sub: Redis): Promise<SocketIOServer> {
+export async function initSocketIO(
+  httpServer: HttpServer,
+  pubClient: Redis,
+  subClient: Redis,
+  logger: AppLogger
+): Promise<SocketIOServer> {
   const io = new SocketIOServer(httpServer, {
     cors: {
       origin: process.env.CORS_ORIGIN || '*',
@@ -31,13 +40,14 @@ export async function initSocketIO(httpServer: HttpServer, pub: Redis, sub: Redi
     pingInterval: 25000,
   });
 
-  // Attach Redis adapter so events propagate across all Node instances
+  // Attach Redis adapter with separate pub/sub clients
+  // Socket.io requires two distinct Redis connections: one for publishing, one for subscribing
   try {
-    io.adapter(createAdapter(pub, sub));
-    logger.info('Socket.io Redis adapter attached');
+    io.adapter(createAdapter(pubClient, subClient));
+    logger.info('Socket.io Redis adapter attached with pub/sub clients');
   } catch (err) {
     logger.warn('Socket.io Redis adapter failed — single-instance mode active', {
-      error: (err as Error).message,
+      data: err,
     });
   }
 
@@ -46,12 +56,12 @@ export async function initSocketIO(httpServer: HttpServer, pub: Redis, sub: Redi
 
   // Base connection lifecycle logging
   io.on('connection', (socket) => {
-    logger.debug('Socket connected', { socketId: socket.id });
+    logger.debug('Socket connected', { data: { socketId: socket.id } });
 
     socket.on('subscribe', (shortCode: string) => {
       if (typeof shortCode === 'string' && /^[a-zA-Z0-9-]{3,30}$/.test(shortCode)) {
         socket.join(`stats_${shortCode}`);
-        logger.debug('Socket subscribed', { socketId: socket.id, shortCode });
+        logger.debug('Socket subscribed', { data: { socketId: socket.id, shortCode } });
       }
     });
 
@@ -60,7 +70,7 @@ export async function initSocketIO(httpServer: HttpServer, pub: Redis, sub: Redi
     });
 
     socket.on('disconnect', () => {
-      logger.debug('Socket disconnected', { socketId: socket.id });
+      logger.debug('Socket disconnected', { data: { socketId: socket.id } });
     });
   });
 

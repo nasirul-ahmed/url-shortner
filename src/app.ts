@@ -1,20 +1,32 @@
 import 'reflect-metadata';
 import { config } from './config';
-import { logger } from './utils/logger';
-import { closeRedis } from './loaders/redis';
 import { closeMongoDB } from './loaders/mongoose';
 import { createApp } from './loaders/fastify';
+import { AppLogger } from './services/logger';
 
 async function bootstrap(): Promise<void> {
-  const { fastify, httpServer } = await createApp();
+  const logger: AppLogger = new AppLogger();
 
-  await require('./loaders').default({ fastify, httpServer });
+  console.log('config', { data: config });
+  const { fastify, httpServer } = await createApp(logger);
 
-  httpServer.listen(config.app.port, '0.0.0.0', () => {
-    logger.info(`Server listening on port ${config.app.port}`, {
-      baseUrl: config.app.baseUrl,
+  // Register all routes BEFORE starting the server
+  await require('./loaders').default({ fastify, httpServer, logger });
+
+  // Now start the server after all routes are registered
+  await fastify.ready();
+  
+  try {
+    await httpServer.listen({ port: config.app.port, host: '0.0.0.0' });
+    logger.info(`Server is listening on port ${config.app.port}`, {
+      data: {
+        baseUrl: config.app.baseUrl,
+      },
     });
-  });
+  } catch (err) {
+    logger.error('Failed to start server', err);
+    process.exit(1);
+  }
 
   const shutdown = async (signal: string) => {
     logger.info(`${signal} received — shutting down gracefully...`);
@@ -23,7 +35,7 @@ async function bootstrap(): Promise<void> {
       try {
         await fastify.close();
         await closeMongoDB();
-        await closeRedis();
+
         logger.info('Graceful shutdown complete');
         process.exit(0);
       } catch (err) {
@@ -42,7 +54,7 @@ async function bootstrap(): Promise<void> {
   process.on('SIGINT', () => shutdown('SIGINT'));
 
   process.on('uncaughtException', (err) => {
-    logger.error('Uncaught exception', err);
+    logger.error('Uncaught exception', { data: { err } });
     process.exit(1);
   });
 

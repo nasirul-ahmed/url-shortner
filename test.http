@@ -1,0 +1,17 @@
+### Environment Variables
+@baseUrl = http://localhost:3000
+@apiPrefix = /api/v1
+
+### ============================================
+### HEALTH CHECK ENDPOINT
+### ============================================
+
+### Health Check
+GET {{baseUrl}}/health
+Content-Type: application/json
+
+
+### ============================================
+### SHORTEN URL ENDPOINT
+### ============================================
+
