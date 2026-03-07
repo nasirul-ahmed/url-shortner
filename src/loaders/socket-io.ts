@@ -1,0 +1,69 @@
+import { Server as HttpServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
+import Redis from 'ioredis';
+import Container from 'typedi';
+import { REDIS_CLIENT, REDIS_SUBSCRIBER } from './redis';
+import { logger } from '../utils/logger';
+
+/**
+ * DI token for the Socket.io server instance.
+ */
+export const SOCKET_IO_SERVER = 'SocketIOServer';
+
+/**
+ * Creates the Socket.io server, attaches it to the HTTP server,
+ * wires the Redis adapter for multi-instance pub/sub,
+ * and registers the io instance in the DI container.
+ *
+ * Must be called AFTER:
+ *   - loaders/redis.ts  (Redis clients must be in container)
+ *   - loaders/fastify.ts (httpServer must exist)
+ */
+export async function initSocketIO(httpServer: HttpServer, pub: Redis, sub: Redis): Promise<SocketIOServer> {
+  const io = new SocketIOServer(httpServer, {
+    cors: {
+      origin: process.env.CORS_ORIGIN || '*',
+      methods: ['GET', 'POST'],
+    },
+    transports: ['websocket', 'polling'],
+    pingTimeout: 60000,
+    pingInterval: 25000,
+  });
+
+  // Attach Redis adapter so events propagate across all Node instances
+  try {
+    io.adapter(createAdapter(pub, sub));
+    logger.info('Socket.io Redis adapter attached');
+  } catch (err) {
+    logger.warn('Socket.io Redis adapter failed — single-instance mode active', {
+      error: (err as Error).message,
+    });
+  }
+
+  // Register io in DI container so SocketService can inject it
+  Container.set(SOCKET_IO_SERVER, io);
+
+  // Base connection lifecycle logging
+  io.on('connection', (socket) => {
+    logger.debug('Socket connected', { socketId: socket.id });
+
+    socket.on('subscribe', (shortCode: string) => {
+      if (typeof shortCode === 'string' && /^[a-zA-Z0-9-]{3,30}$/.test(shortCode)) {
+        socket.join(`stats_${shortCode}`);
+        logger.debug('Socket subscribed', { socketId: socket.id, shortCode });
+      }
+    });
+
+    socket.on('unsubscribe', (shortCode: string) => {
+      socket.leave(`stats_${shortCode}`);
+    });
+
+    socket.on('disconnect', () => {
+      logger.debug('Socket disconnected', { socketId: socket.id });
+    });
+  });
+
+  logger.info('Socket.io loader complete — server registered in DI container');
+  return io;
+}

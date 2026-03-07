@@ -1,0 +1,36 @@
+/node_modules
+.DS_Store
+.env
+Thumbs.db
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+/build
+
+**/node_modules/*
+**/.firebaserc
+*/npm-debug.log
+**/package-lock.json
+
+# IDE - VSCode
+.vscode/*
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
+.history/*
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# profiling files
+chrome-profiler-events*.json
+speed-measure-plugin*.json
