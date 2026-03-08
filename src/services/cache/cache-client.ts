@@ -6,12 +6,24 @@ import { ISetCacheInput } from '../../interfaces/redis.interfaces';
 export class CacheService {
   constructor(@InjectRedis() private readonly redis: Redis) {}
 
+  private serialize(data: unknown): string {
+    return JSON.stringify(data);
+  }
+
+  private deserialize<T>(data: string | null): T | undefined {
+    if (!data) return undefined;
+
+    try {
+      return JSON.parse(data);
+    } catch {
+      return undefined;
+    }
+  }
+
   public async setCache<T>(input: ISetCacheInput<T>): Promise<boolean> {
     const { data, expire, key } = input;
 
-    const json = JSON.stringify(data);
-
-    await this.redis.setex(key, expire, json);
+    await this.redis.setex(key, expire, this.serialize(data));
 
     return true;
   }
@@ -35,11 +47,39 @@ export class CacheService {
 
     const data = await this.redis.get(key);
 
-    if (!data) return undefined;
+    return this.deserialize(data);
+  }
 
-    const cache = JSON.parse(data);
+  public async setMap<T extends Record<string, any>>(key: string, data: T, expire?: number): Promise<boolean> {
+    const entries = Object.entries(data).map(([field, value]) => [field, this.serialize(value)]);
 
-    return cache;
+    await this.redis.hset(key, Object.fromEntries(entries));
+
+    if (expire) {
+      await this.redis.expire(key, expire);
+    }
+
+    return true;
+  }
+
+  public async getMap<T>(key: string): Promise<Record<string, T> | undefined> {
+    const data = await this.redis.hgetall(key);
+
+    if (!data || Object.keys(data).length === 0) return undefined;
+
+    const parsed: Record<string, T> = {};
+
+    for (const field in data) {
+      parsed[field] = this.deserialize(data[field]);
+    }
+
+    return parsed;
+  }
+
+  public async setNX(key: string, value: string, ttl: number): Promise<boolean> {
+    const result = await this.redis.set(key, value, 'EX', ttl, 'NX');
+
+    return result === 'OK';
   }
 
   public async delCache(key: string): Promise<boolean> {

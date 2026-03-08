@@ -6,6 +6,7 @@ import { FastifyInstance } from 'fastify';
 import { AppLogger } from '../services/logger/app-logger';
 import { createRedisClient, createRedisSubscriber } from '../redis';
 import { config } from '../config';
+import { health } from '../api/health.controller';
 
 export default async ({
   fastify,
@@ -39,11 +40,11 @@ export default async ({
   // Register routes with API prefix
   await fastify.register(
     async (api) => {
-      api.get('/health', urlController.health.bind(urlController));
+      api.get('/health', health);
       api.post('/shorten', urlController.shorten.bind(urlController));
       api.get('/:shortCode', urlController.redirect.bind(urlController));
     },
-    { prefix: config.app.apiPrefix },
+    // { prefix: config.app.apiPrefix },
   );
 
   logger.info('Routes registered', { data: { prefix: config.app.apiPrefix } });

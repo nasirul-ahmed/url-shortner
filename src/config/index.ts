@@ -16,7 +16,6 @@ export const config = {
     instanceId: process.env.INSTANCE_ID || `instance-${process.pid}`,
   },
 
-  
   redis: {
     redisUrl: process.env.REDIS_URL,
     host: process.env.REDIS_HOST || 'localhost',
@@ -53,8 +52,8 @@ export const config = {
   },
 
   shortCode: {
-    length: 7,
-    charset: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
+    length: 8,
+    charset: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
   },
 } as const;
 

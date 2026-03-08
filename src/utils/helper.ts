@@ -1,4 +1,4 @@
-interface ISensitiveMap extends Record<string, string> {} 
+interface ISensitiveMap extends Record<string, string> {}
 
 const blurProperty = (_): string => '***';
 
@@ -44,3 +44,5 @@ export const removeSensitiveData = (data: unknown, sensitive: string[], maxDepth
 
 export const convertToPlainObject = (data) =>
   Object.getOwnPropertyNames(data).reduce((acc, curr) => ({ ...acc, [curr]: data[curr] }), {});
+
+export const timer = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

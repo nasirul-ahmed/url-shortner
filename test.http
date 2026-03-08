@@ -1,17 +1,29 @@
 ### Environment Variables
 @baseUrl = http://localhost:3000
-@apiPrefix = /api/v1
+@apiPrefix =
 
 ### ============================================
 ### HEALTH CHECK ENDPOINT
 ### ============================================
 
 ### Health Check
-GET {{baseUrl}}/health
+GET {{baseUrl}}{{apiPrefix}}/health
 Content-Type: application/json
 
 
 ### ============================================
 ### SHORTEN URL ENDPOINT
 ### ============================================
+POST {{baseUrl}}{{apiPrefix}}/shorten 
+Content-Type: application/json
 
+{
+    "longUrl": "https://www.pexels.com/video/las-vegas-neon-lights-at-twilight-36446834/"
+}
+
+
+### ============================================
+### RESOLVE URL
+### ============================================
+GET {{baseUrl}}{{apiPrefix}}/DebWEqVF 
+Content-Type: application/json

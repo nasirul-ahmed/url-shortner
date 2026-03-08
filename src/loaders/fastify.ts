@@ -5,6 +5,10 @@ import fastifyCompress from '@fastify/compress';
 import { config } from '../config';
 import { AppLogger } from '../services/logger/app-logger';
 import fastifyRateLimit from '@fastify/rate-limit';
+import { ErrorCodes } from '../errors';
+import { AppError } from '../errors/AppError';
+import { ZodError } from 'zod';
+import { ErrorMessages } from '../errors/errorCodes';
 
 export async function createApp(logger: AppLogger): Promise<{
   fastify: FastifyInstance;
@@ -26,25 +30,42 @@ export async function createApp(logger: AppLogger): Promise<{
     encodings: ['gzip', 'deflate'],
   });
 
-  console.log('Api prefix', config.app.apiPrefix);
-
-  await fastify.register(fastifyRateLimit, {
-    max: config.rateLimit.max,
-    timeWindow: config.rateLimit.timeWindow,
-    errorResponseBuilder: () => ({
-      status: 4004,
-      message: 'Too many requests. Please slow down.',
-      error: {},
-    }),
-  });
+  // await fastify.register(fastifyRateLimit, {
+  //   max: config.rateLimit.max,
+  //   timeWindow: config.rateLimit.timeWindow,
+  //   errorResponseBuilder: () => ({
+  //     status: 4004,
+  //     message: 'Too many requests. Please slow down.',
+  //     error: {},
+  //   }),
+  // });
 
   fastify.setErrorHandler((error, _request, reply) => {
-    logger.error('Fastify caught unhandled error', error);
-    reply.code(400).send({ status: 5000, message: 'Internal server error', error: {} });
+    console.log(error)
+    logger.error('API Error:', { data: error as unknown as Record<string, unknown> });
+
+    if (error instanceof AppError) {
+      return reply.status(error.statusCode).send({
+        status: error.code,
+        message: error.message || ErrorMessages[error.code],
+        details: error.details || {},
+      });
+    }
+
+    if (error instanceof ZodError) {
+      return reply.status(400).send({
+        status: ErrorCodes.BAD_REQUEST,
+        message: 'Validation failed',
+        details: error,
+      });
+    }
+
+    // Fallback to INTERNAL_SERVER_ERROR
+    reply.code(500).send({ status: 5000, message: 'Internal server error', details: {} });
   });
 
   fastify.setNotFoundHandler((_request, reply) => {
-    reply.code(404).send({ status: 4003, message: 'Route not found', error: {} });
+    reply.code(404).send({ status: ErrorCodes.NOT_FOUND, message: 'Not found', details: {} });
   });
 
   // Use Fastify's built-in HTTP server
