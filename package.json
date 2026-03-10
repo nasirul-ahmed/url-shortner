@@ -26,6 +26,7 @@
     "geoip-lite": "2.0.0",
     "http-status-codes": "^2.3.0",
     "ioredis": "5.10.0",
+    "lru-cache": "^11.2.6",
     "mongoose": "9.2.4",
     "nanoid": "5.1.6",
     "pino": "^10.3.1",
