@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import cluster from 'cluster';
+import os from 'os';
 import { config } from './config';
 import { closeMongoDB } from './loaders/mongoose';
 import { createApp } from './loaders/fastify';
@@ -6,24 +8,20 @@ import { AppLogger } from './services/logger';
 
 async function bootstrap(): Promise<void> {
   const logger: AppLogger = new AppLogger();
-
-  console.log('config', { data: config });
   const { fastify, httpServer } = await createApp(logger);
 
-  // Register all routes BEFORE starting the server
   await require('./loaders').default({ fastify, httpServer, logger });
-
-  // Now start the server after all routes are registered
   await fastify.ready();
-  
+
   try {
-    await httpServer.listen({ port: config.app.port, host: '0.0.0.0' });
-    logger.info(`Server is listening on port ${config.app.port}`, {
+    await fastify.listen({ port: config.app.port, host: '0.0.0.0' });
+    logger.info(`Worker ${process.pid} is listening on port ${config.app.port}`, {
       data: {
         baseUrl: config.app.baseUrl,
       },
     });
   } catch (err) {
+    console.error('Failed to start server', err);
     logger.error('Failed to start server', err);
     process.exit(1);
   }
@@ -31,39 +29,63 @@ async function bootstrap(): Promise<void> {
   const shutdown = async (signal: string) => {
     logger.info(`${signal} received — shutting down gracefully...`);
 
-    httpServer.close(async () => {
-      try {
-        await fastify.close();
-        await closeMongoDB();
-
-        logger.info('Graceful shutdown complete');
-        process.exit(0);
-      } catch (err) {
-        logger.error('Error during shutdown', err);
-        process.exit(1);
-      }
-    });
-
-    setTimeout(() => {
-      logger.error('Forced shutdown after timeout');
+    const forceExit = setTimeout(() => {
+      logger.error('Forced shutdown after timeout — forcing exit');
       process.exit(1);
     }, 15_000);
+
+    forceExit.unref();
+
+    try {
+      await fastify.close();
+      await closeMongoDB();
+
+      clearTimeout(forceExit);
+      logger.info('Graceful shutdown complete');
+      process.exit(0);
+    } catch (err) {
+      logger.error('Error during shutdown', err);
+      clearTimeout(forceExit);
+      process.exit(1);
+    }
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
-
+  process.on('disconnect', () => shutdown('disconnect'));
   process.on('uncaughtException', (err) => {
     logger.error('Uncaught exception', { data: { err } });
     process.exit(1);
   });
-
   process.on('unhandledRejection', (reason) => {
     logger.error('Unhandled promise rejection', reason);
   });
 }
 
-bootstrap().catch((err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
+if (cluster.isPrimary) {
+  const numCPUs = os.cpus().length;
+  const numWorkers = Math.max(1, numCPUs - 1);
+
+  console.log(`Primary ${process.pid} is running — spawning ${numWorkers} workers`);
+
+  for (let i = 0; i < numWorkers; i++) {
+    cluster.fork();
+  }
+
+  cluster.on('exit', (worker, code, signal) => {
+    console.log(
+      `Worker ${worker.process.pid} died (signal: ${signal ?? 'none'}, code: ${code}) — restarting...`
+    );
+    cluster.fork();
+  });
+
+  cluster.on('online', (worker) => {
+    console.log(`Worker ${worker.process.pid} is online`);
+  });
+
+} else {
+  bootstrap().catch((err) => {
+    console.error(`Worker ${process.pid} failed to start:`, err);
+    process.exit(1);
+  });
+}

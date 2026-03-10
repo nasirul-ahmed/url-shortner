@@ -47,5 +47,5 @@ export default async ({
     // { prefix: config.app.apiPrefix },
   );
 
-  logger.info('Routes registered', { data: { prefix: config.app.apiPrefix } });
+  // logger.info('Routes registered', { data: { prefix: config.app.apiPrefix } });
 };

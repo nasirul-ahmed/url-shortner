@@ -15,7 +15,7 @@ export class UrlShortenerService {
     private readonly logger: AppLogger,
     private readonly redlock: RedlockClient,
     private readonly cacheService: CacheService,
-  ) {}
+  ) { }
 
   private getUrlCacheKey(shortCode: string) {
     return `url:${shortCode}`;
@@ -63,7 +63,6 @@ export class UrlShortenerService {
       shortCode = await this.generateUniqueCode();
     }
 
-    // cache immediately so first redirect is fast and then store it to db
     await this.cacheMapping(shortCode, longUrl);
     this.persistUrlAsync({ ...payload, longUrl, shortCode });
 
@@ -84,31 +83,7 @@ export class UrlShortenerService {
       return cached;
     }
 
-    // const lockKey = `lock:${shortCode}`;
-
-    // const lock = await this.cacheService.setNX(lockKey, '1', 3);
-
-    // if (lock) {
-    //   try {
-    //     const doc = await UrlModel.findOne({ shortCode }).sort({ _id: -1 }).select('longUrl').lean();
-
-    //     console.log({ doc });
-
-    //     if (!doc) {
-    //       throw new AppError({ code: ErrorCodes.NOT_FOUND });
-    //     }
-
-    //     await this.cacheMapping(shortCode, doc.longUrl);
-
-    //     return doc.longUrl;
-    //   } finally {
-    //     await this.cacheService.delCache(lockKey);
-    //   }
-    // }
-
-    const urlDoc = await UrlModel.findOne({ shortCode, isActive: true }).select('longUrl -_id').lean();
-
-    // console.log(urlDoc)
+    const urlDoc = await UrlModel.findOne({ shortCode, isActive: true }).select('longUrl').lean();
 
     if (!urlDoc) {
       throw new AppError({ code: ErrorCodes.NOT_FOUND });
@@ -117,15 +92,6 @@ export class UrlShortenerService {
     await this.cacheMapping(shortCode, urlDoc.longUrl);
 
     return urlDoc.longUrl;
-
-    // someone else rebuilding cache
-    // await new Promise((r) => setTimeout(r, 50));
-
-    // const retry = await this.cacheService.getCache<string>(cacheKey);
-
-    // if (retry) return retry;
-
-    // throw new AppError({ code: ErrorCodes.NOT_FOUND });
   }
 
   private async generateUniqueCode(attempts = 0): Promise<string> {
@@ -139,7 +105,6 @@ export class UrlShortenerService {
     return code;
   }
 
-  // DB operations
   private async persistUrlAsync(data: any) {
     setImmediate(async () => {
       try {
