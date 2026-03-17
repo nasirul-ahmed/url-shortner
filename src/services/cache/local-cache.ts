@@ -13,8 +13,11 @@ export class LocalCacheService {
 
   constructor() {
     this.cache = new LRUCache<string, unknown>({
-      max: 50000, // max items in memory
-      ttl: 1000 * 60 * 5, // default 5 min
+      max: 10000,
+      ttl: 1000 * 60 * 5, // 5 minutes default
+      updateAgeOnGet: false, // don't relink on every read
+      updateAgeOnHas: false,
+      allowStale: false,
     });
   }
 
@@ -22,7 +25,7 @@ export class LocalCacheService {
     const { key, data, ttl } = input;
 
     this.cache.set(key, data, {
-      ttl: ttl ? ttl * 1000 : undefined,
+      ttl: ttl ? ttl * 1000 : this.cache.ttl,
     });
 
     return true;

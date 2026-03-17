@@ -4,6 +4,7 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import Container from 'typedi';
 import { AppLogger } from '../services/logger/app-logger';
 import { Redis } from '../redis';
+import eventHandler from '../socketEventHandler/eventHandler';
 
 /**
  * DI token for the Socket.io server instance.
@@ -11,9 +12,8 @@ import { Redis } from '../redis';
 export const SOCKET_IO_SERVER = 'SocketIOServer';
 
 /**
- * Creates the Socket.io server, attaches it to the HTTP server,
- * wires the Redis adapter for multi-instance pub/sub,
- * and registers the io instance in the DI container.
+ * Creates and configures the Socket.IO server with Redis adapter.
+ * Delegates event handling to specialized handlers via the handler pattern.
  *
  * Must be called AFTER:
  *   - loaders/redis.ts  (Redis clients must be in container)
@@ -28,52 +28,63 @@ export async function initSocketIO(
   httpServer: HttpServer,
   pubClient: Redis,
   subClient: Redis,
-  logger: AppLogger
+  logger: AppLogger,
 ): Promise<SocketIOServer> {
+  // Simple connection tracking (use Redis for multi-instance deployments)
+  const connectionCounts = new Map<string, number>();
+  const maxConnectionsPerIP = parseInt(process.env.MAX_CONNECTIONS_PER_IP || '50');
+
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: process.env.CORS_ORIGIN || '*',
+      origin: process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3000',
       methods: ['GET', 'POST'],
     },
     transports: ['websocket', 'polling'],
     pingTimeout: 60000,
     pingInterval: 25000,
+    perMessageDeflate: true, // Enable compression for better performance
+    // allowRequest: (req, fn) => {
+    //   // Basic connection limiting
+    //   const clientIP = req.socket?.remoteAddress || 'unknown';
+    //   const currentCount = connectionCounts.get(clientIP) || 0;
+
+    //   if (currentCount >= maxConnectionsPerIP) {
+    //     logger.warn('Connection limit exceeded', { data: { ip: clientIP, count: currentCount } });
+    //     return fn('Connection limit exceeded', false);
+    //   }
+
+    //   connectionCounts.set(clientIP, currentCount + 1);
+    //   fn(null, true);
+    // },
   });
 
-  // Attach Redis adapter with separate pub/sub clients
-  // Socket.io requires two distinct Redis connections: one for publishing, one for subscribing
+  // Track disconnections to decrement counters
+  io.on('connection', (socket) => {
+    socket.on('disconnect', () => {
+      const clientIP = socket.handshake.address;
+      const currentCount = connectionCounts.get(clientIP) || 0;
+      if (currentCount > 0) {
+        connectionCounts.set(clientIP, currentCount - 1);
+      }
+    });
+  });
+
+  // Attach Redis adapter for multi-instance support
   try {
     io.adapter(createAdapter(pubClient, subClient));
-    logger.info('Socket.io Redis adapter attached with pub/sub clients');
+    logger.info('Socket.io Redis adapter attached');
   } catch (err) {
     logger.warn('Socket.io Redis adapter failed — single-instance mode active', {
       data: err,
     });
   }
 
-  // Register io in DI container so SocketService can inject it
+  // Register io in DI container for service injection
   Container.set(SOCKET_IO_SERVER, io);
 
-  // Base connection lifecycle logging
-  io.on('connection', (socket) => {
-    logger.debug('Socket connected', { data: { socketId: socket.id } });
+  // Register event handlers
+  eventHandler(io, logger);
 
-    socket.on('subscribe', (shortCode: string) => {
-      if (typeof shortCode === 'string' && /^[a-zA-Z0-9-]{3,30}$/.test(shortCode)) {
-        socket.join(`stats_${shortCode}`);
-        logger.debug('Socket subscribed', { data: { socketId: socket.id, shortCode } });
-      }
-    });
-
-    socket.on('unsubscribe', (shortCode: string) => {
-      socket.leave(`stats_${shortCode}`);
-    });
-
-    socket.on('disconnect', () => {
-      logger.debug('Socket disconnected', { data: { socketId: socket.id } });
-    });
-  });
-
-  logger.info('Socket.io loader complete — server registered in DI container');
+  logger.info('Socket.io configured with Redis adapter and event handlers');
   return io;
 }

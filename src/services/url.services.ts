@@ -8,6 +8,9 @@ import { AppError } from '../errors/AppError';
 import { ErrorCodes } from '../errors';
 import { UrlModel } from '../models/url.model';
 import { Lock } from 'redlock';
+import { LocalCacheService } from './cache';
+
+export const SHORT_CODE_LIFE = 60 * 60 * 24; // 24h for shortCode life
 
 @Service()
 export class UrlShortenerService {
@@ -15,17 +18,38 @@ export class UrlShortenerService {
     private readonly logger: AppLogger,
     private readonly redlock: RedlockClient,
     private readonly cacheService: CacheService,
-  ) { }
+    private readonly localCache: LocalCacheService,
+  ) {}
+
+  private readonly memCache = new Map<string, string>();
+  private readonly MEM_CACHE_MAX = 50_000;
+
+  private setMemCache(key: string, value: string) {
+    if (this.memCache.size >= this.MEM_CACHE_MAX) {
+      // delete oldest entry (Maps preserve insertion order)
+      const firstKey = this.memCache.keys().next().value;
+      this.memCache.delete(firstKey);
+    }
+    this.memCache.set(key, value);
+  }
 
   private getUrlCacheKey(shortCode: string) {
     return `url:${shortCode}`;
+  }
+
+  private setLocalCacheMapping(shortCode: string, longUrl: string) {
+    this.localCache.set({
+      key: this.getUrlCacheKey(shortCode),
+      data: longUrl,
+      ttl: 5, // in seconds for local cache - lets not bloat it up
+    });
   }
 
   private async cacheMapping(shortCode: string, longUrl: string) {
     await this.cacheService.setCache({
       key: this.getUrlCacheKey(shortCode),
       data: longUrl,
-      expire: 60 * 60 * 24, // 24h for shortCode life
+      expire: SHORT_CODE_LIFE,
     });
   }
 
@@ -64,6 +88,9 @@ export class UrlShortenerService {
     }
 
     await this.cacheMapping(shortCode, longUrl);
+
+    this.setLocalCacheMapping(shortCode, longUrl);
+
     this.persistUrlAsync({ ...payload, longUrl, shortCode });
 
     return {
@@ -77,19 +104,29 @@ export class UrlShortenerService {
   public async resolveUrl(shortCode: string): Promise<string> {
     const cacheKey = this.getUrlCacheKey(shortCode);
 
+    const memory = this.localCache.get<string>(cacheKey);
+
+    if (memory) {
+      return memory;
+    }
+
     const cached = await this.cacheService.getCache<string>(cacheKey);
 
     if (cached) {
+      this.setLocalCacheMapping(shortCode, cached);
+
+      // setImmediate(async () => this.setLocalCacheMapping(shortCode, cached))
       return cached;
     }
 
-    const urlDoc = await UrlModel.findOne({ shortCode, isActive: true }).select('longUrl').lean();
+    const urlDoc = await UrlModel.findOne({ shortCode }).select('longUrl').lean();
 
     if (!urlDoc) {
       throw new AppError({ code: ErrorCodes.NOT_FOUND });
     }
 
     await this.cacheMapping(shortCode, urlDoc.longUrl);
+    this.setLocalCacheMapping(shortCode, urlDoc.longUrl);
 
     return urlDoc.longUrl;
   }

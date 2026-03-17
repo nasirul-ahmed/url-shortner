@@ -1,8 +1,8 @@
 interface ISensitiveMap extends Record<string, string> {}
 
-const blurProperty = (_): string => '***';
+const blurProperty = (d: any): string => '***';
 
-const isStream = (st): boolean => st !== null && typeof st === 'object' && typeof st.pipe === 'function';
+const isStream = (st: any): boolean => st !== null && typeof st === 'object' && typeof st.pipe === 'function';
 
 const hideSensitive = (data: unknown, sensitiveMap: ISensitiveMap, depth = 0, maxDepth = 2): unknown => {
   if (depth >= maxDepth) return `max depth exceeded, depth: ${depth}`;
@@ -42,7 +42,12 @@ export const removeSensitiveData = (data: unknown, sensitive: string[], maxDepth
   return hideSensitive(data, sensitiveMap, 0, maxDepth);
 };
 
-export const convertToPlainObject = (data) =>
+export const convertToPlainObject = (data: any) =>
   Object.getOwnPropertyNames(data).reduce((acc, curr) => ({ ...acc, [curr]: data[curr] }), {});
 
 export const timer = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Generate consistent room name for stats subscriptions
+ */
+export const getStatsRoom = (shortCode: string): string => `stats_${shortCode}`;

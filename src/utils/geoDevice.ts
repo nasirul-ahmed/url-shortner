@@ -1,6 +1,7 @@
 import geoip from 'geoip-lite';
 import { UAParser } from 'ua-parser-js';
-import { DeviceType, IGeoInfo, IDeviceInfo } from '../interfaces';
+import { IGeoInfo, IDeviceInfo } from '../interfaces';
+import { DeviceType } from '../types';
 
 export function getGeoInfo(ip: string): IGeoInfo {
   try {

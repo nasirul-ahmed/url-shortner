@@ -14,7 +14,11 @@ async function bootstrap(): Promise<void> {
   await fastify.ready();
 
   try {
-    await fastify.listen({ port: config.app.port, host: '0.0.0.0' });
+    await fastify.listen({
+      port: config.app.port,
+      // host: 'localhost',
+      host: '0.0.0.0'
+    });
     logger.info(`Worker ${process.pid} is listening on port ${config.app.port}`, {
       data: {
         baseUrl: config.app.baseUrl,
@@ -52,7 +56,6 @@ async function bootstrap(): Promise<void> {
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('disconnect', () => shutdown('disconnect'));
   process.on('uncaughtException', (err) => {
     logger.error('Uncaught exception', { data: { err } });
     process.exit(1);
@@ -62,9 +65,11 @@ async function bootstrap(): Promise<void> {
   });
 }
 
-if (cluster.isPrimary) {
+const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === 'development';
+
+if (cluster.isPrimary && !isDev) {
   const numCPUs = os.cpus().length;
-  const numWorkers = Math.max(1, numCPUs - 1);
+  const numWorkers = Math.max(1, numCPUs - 4);
 
   console.log(`Primary ${process.pid} is running — spawning ${numWorkers} workers`);
 
@@ -73,19 +78,21 @@ if (cluster.isPrimary) {
   }
 
   cluster.on('exit', (worker, code, signal) => {
-    console.log(
-      `Worker ${worker.process.pid} died (signal: ${signal ?? 'none'}, code: ${code}) — restarting...`
-    );
+    console.log(`Worker ${worker.process.pid} died (signal: ${signal ?? 'none'}, code: ${code}) — restarting...`);
     cluster.fork();
   });
 
   cluster.on('online', (worker) => {
     console.log(`Worker ${worker.process.pid} is online`);
   });
-
 } else {
   bootstrap().catch((err) => {
     console.error(`Worker ${process.pid} failed to start:`, err);
     process.exit(1);
   });
 }
+
+// bootstrap().catch((err) => {
+//   console.error(`Worker ${process.pid} failed to start:`, err);
+//   process.exit(1);
+// });

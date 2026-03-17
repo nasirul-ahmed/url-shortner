@@ -2,17 +2,17 @@ config:
   target: "http://localhost:3000"
   phases:
     - duration: 10
-      arrivalRate: 20
+      arrivalRate: 100
       name: Warm up
-    - duration: 10
-      arrivalRate: 250
+    - duration: 15
+      arrivalRate: 300
       name: Medium load
-    - duration: 10
-      arrivalRate: 1000
+    - duration: 20
+      arrivalRate: 500
       name: Heavy load
 
 scenarios:
   - name: Redirect test
     flow:
       - get:
-          url: "/myLPB3gA"
+          url: "/BWPl5Nwa"
