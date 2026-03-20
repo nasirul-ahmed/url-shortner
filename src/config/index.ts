@@ -55,6 +55,14 @@ export const config = {
     length: 8,
     charset: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
   },
+  auth: {
+    jwtSecret: process.env.JWT_SECRET || 'change-me-super-secret',
+    jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
+    refreshTokenExpiresIn: process.env.REFRESH_EXPIRES_IN || '7d',
+    refreshTokenRollIntervalSeconds: 60 * 60 * 24, // rotate every day
+    emailVerificationTokenExpirySeconds: 60 * 60 * 24,
+    resetPasswordTokenExpirySeconds: 60 * 60,
+  },
 } as const;
 
 export type Config = typeof config;

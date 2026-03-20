@@ -35,12 +35,26 @@ export default async ({
 
   const Container = require('typedi').default || require('typedi');
   const { UrlController } = require('../api/url.controller');
+  const { AuthController } = require('../api/auth.controller');
+
   const urlController = Container.get(UrlController);
+  const authController = Container.get(AuthController);
 
   // Register routes with API prefix
   await fastify.register(
     async (api) => {
       api.get('/health', health);
+
+      // Auth
+      api.post('/auth/register', authController.register.bind(authController));
+      api.post('/auth/verify-email', authController.verifyEmail.bind(authController));
+      api.post('/auth/login', authController.login.bind(authController));
+      api.post('/auth/refresh', authController.refresh.bind(authController));
+      api.post('/auth/forgot-password', authController.forgotPassword.bind(authController));
+      api.post('/auth/reset-password', authController.resetPassword.bind(authController));
+      api.post('/admin/users/:userId/disable', authController.disableUser.bind(authController));
+
+      // URL shortener
       api.post('/shorten', urlController.shorten.bind(urlController));
       api.get('/:shortCode', urlController.redirect.bind(urlController));
     },

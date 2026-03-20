@@ -5,6 +5,8 @@ import { AnalyticsService } from '../services/analytics.service';
 import { SocketService } from '../services/socket.service';
 import { UrlShortenerService } from '../services/url.services';
 import { UrlController } from '../api/url.controller';
+import { AuthService } from '../services/auth.service';
+import { AuthController } from '../api/auth.controller';
 import { LocalCacheService } from '../services/cache';
 
 export async function initializeDependencies({
@@ -18,11 +20,13 @@ export async function initializeDependencies({
   models.forEach((model) => Container.set(model.name, model));
 
   // Ensure key services are instantiated early so they set up their lifecycle hooks.
+  Container.get(LocalCacheService);
   Container.get(UrlShortenerService);
   Container.get(SocketService);
   Container.get(AnalyticsService);
+  Container.get(AuthService);
   Container.get(UrlController);
-  Container.get(LocalCacheService);
+  Container.get(AuthController);
 
   logger.info('Dependency injection container initialized');
 }
