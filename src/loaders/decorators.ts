@@ -3,7 +3,11 @@ import { Container } from 'typedi';
 import { AuthService } from '../services/auth.service';
 import { IUser } from '../interfaces';
 import { extractTokenFromHeader } from '../utils/helper';
+import { UserRole } from '../interfaces/user.interfaces';
 
+/*
+/* custom auth hooks to authenticate & attaching user to the req 
+*/
 const decorateAuthMiddleware = async (fastify: FastifyInstance) => {
   const authService = Container.get(AuthService);
 
@@ -18,6 +22,9 @@ const decorateAuthMiddleware = async (fastify: FastifyInstance) => {
       }
 
       const decoded = await authService.verifyToken(token);
+      if (!decoded) {
+        return reply.code(401).send({ message: 'Invalid or expired token' });
+      }
       request.user = decoded as IUser;
     } catch (err) {
       request.log.error(err);
@@ -25,14 +32,16 @@ const decorateAuthMiddleware = async (fastify: FastifyInstance) => {
     }
   };
 
-  // RBAC Hook Factory
-  const checkRole = (role: string): preHandlerHookHandler => {
+  // RBAC Hook Factory - supports both single role and array of roles
+  const checkRole = (roles: UserRole | UserRole[]): preHandlerHookHandler => {
     return async (request, reply) => {
       if (!request.user) {
         return reply.code(401).send({ message: 'Authentication required' });
       }
 
-      if (role !== request.user.role) {
+      const allowedRoles = Array.isArray(roles) ? roles : [roles];
+
+      if (!allowedRoles.includes(request.user.role)) {
         return reply.code(403).send({ message: 'Forbidden: Insufficient permissions' });
       }
     };

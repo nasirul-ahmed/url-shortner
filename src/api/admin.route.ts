@@ -9,7 +9,7 @@ export default async function (fastify: FastifyInstance) {
   fastify.post(
     '/admin/users/:userId/disable',
     {
-      preHandler: [fastify.authenticate, fastify.checkRole(UserRole.ADMIN)],
+      preHandler: [fastify.authenticate, fastify.checkRole([UserRole.ADMIN])],
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { userId } = request.params as { userId?: string };

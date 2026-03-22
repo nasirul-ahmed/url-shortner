@@ -2,9 +2,11 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { Container } from 'typedi';
 import { AuthService } from '../services/auth.service';
 import { parseMaxAge } from '../utils/helper';
+import { AppLogger } from '../services/logger';
 
 export default async function (fastify: FastifyInstance) {
   const authService = Container.get(AuthService);
+  const logger = Container.get(AppLogger);
 
   // Public Routes
   fastify.post('/auth/register', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -91,6 +93,14 @@ export default async function (fastify: FastifyInstance) {
   });
 
   // Protected Routes
+  fastify.get(
+    '/profile',
+    { preHandler: fastify.authenticate },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return request.user;
+    },
+  );
+
   fastify.post(
     '/auth/refresh',
     { preHandler: [fastify.authenticate] },
@@ -128,22 +138,85 @@ export default async function (fastify: FastifyInstance) {
     },
   );
 
+  // Get current authenticated user
+  fastify.get(
+    '/auth/me',
+    { preHandler: [fastify.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+      if (!request.user) {
+        reply.status(401).send({ message: 'Not authenticated' });
+        return;
+      }
+
+      reply.status(200).send({
+        user: {
+          _id: request.user._id,
+          email: request.user.email,
+          username: request.user.username,
+          role: request.user.role,
+          emailVerified: request.user.emailVerified,
+          disabled: request.user.disabled,
+          lastLoginAt: request.user.lastLoginAt,
+          createdAt: request.user.createdAt,
+        },
+      });
+    },
+  );
+
   fastify.post(
     '/auth/logout',
     { preHandler: [fastify.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+      if (!request.user) {
+        reply.status(401).send({ message: 'Not authenticated' });
+        return;
+      }
 
-    async (request: FastifyRequest, reply: FastifyReply) => {},
+      const body = request.body as { sessionId?: string };
+      if (!body.sessionId) {
+        reply.status(400).send({ message: 'Missing sessionId' });
+        return;
+      }
+
+      await authService.logout(body.sessionId, request.user._id!);
+
+      // Clear refresh token cookie
+      reply.clearCookie('refreshToken', { path: '/' });
+      reply.status(200).send({ message: 'Logged out successfully' });
+    },
   );
 
   fastify.post(
     '/auth/logout-all',
     { preHandler: [fastify.authenticate] },
-    async (request: FastifyRequest, reply: FastifyReply) => {},
+    async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+      if (!request.user) {
+        reply.status(401).send({ message: 'Not authenticated' });
+        return;
+      }
+
+      await authService.logoutAll(request.user._id!);
+
+      // Clear refresh token cookie
+      reply.clearCookie('refreshToken', { path: '/' });
+      reply.status(200).send({ message: 'Logged out from all devices' });
+    },
   );
 
   fastify.get(
     '/auth/sessions',
     { preHandler: [fastify.authenticate] },
-    async (request: FastifyRequest, reply: FastifyReply) => {},
+    async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+      if (!request.user) {
+        reply.status(401).send({ message: 'Not authenticated' });
+        return;
+      }
+
+      const sessions = await authService.getUserSessions(request.user._id!);
+      reply.status(200).send({
+        sessions,
+        count: sessions.length,
+      });
+    },
   );
 }

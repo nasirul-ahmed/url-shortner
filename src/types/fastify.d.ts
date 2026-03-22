@@ -1,4 +1,4 @@
-import { FastifyRequest, FastifyReply, preHandlerHookHandler } from 'fastify';
+import { preHandlerHookHandler } from 'fastify';
 import { IUser } from '../interfaces';
 
 declare module 'fastify' {
@@ -8,6 +8,6 @@ declare module 'fastify' {
 
   interface FastifyInstance {
     authenticate: preHandlerHookHandler;
-    checkRole(role: string): preHandlerHookHandler;
+    checkRole(roles: string | string[]): preHandlerHookHandler;
   }
 }
