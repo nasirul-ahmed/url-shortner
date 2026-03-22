@@ -1,6 +1,6 @@
 import z from 'zod';
 
-export const CreateUrlValidation = z.object({
+export const shortenURLPayloadValidation = z.object({
   longUrl: z.url('Must be a valid URL').max(2048),
   customAlias: z
     .string()
@@ -14,6 +14,6 @@ export const CreateUrlValidation = z.object({
     .transform((v) => (v ? new Date(v) : undefined)),
 });
 
-export const ShortCodeParamsValidation = z.object({
+export const shortCodeParamsValidation = z.object({
   shortCode: z.string().min(3).max(30),
 });

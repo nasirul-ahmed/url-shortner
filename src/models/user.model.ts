@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
-import { IUser } from '../interfaces';
+import { IUser, UserRole } from '../interfaces';
 
 export interface IUserModel extends Omit<IUser, '_id'>, Document {}
 
@@ -8,7 +8,7 @@ const UserSchema = new Schema<IUserModel>(
     email: { type: String, required: true, unique: true, trim: true, index: true },
     username: { type: String, required: true, unique: true, trim: true, index: true },
     passwordHash: { type: String, required: true },
-    role: { type: String, required: true, enum: ['USER', 'ADMIN'], default: 'USER' },
+    role: { type: String, required: true, enum: Object.values(UserRole), default: UserRole.USER },
     emailVerified: { type: Boolean, default: false },
     emailVerifyToken: { type: String, default: null },
     emailVerifyTokenExpiresAt: { type: Date, default: null },
@@ -21,7 +21,17 @@ const UserSchema = new Schema<IUserModel>(
   {
     timestamps: true,
     versionKey: false,
-  }
+    toJSON: {
+      transform: (doc, ret) => {
+        delete ret.passwordHash;
+        delete ret.emailVerifyToken;
+        delete ret.resetPasswordTokenHash;
+        delete ret.loginAttempts;
+        delete ret.lockUntil;
+        return ret;
+      },
+    },
+  },
 );
 
 export const UserModel: Model<IUserModel> = mongoose.model<IUserModel>('User', UserSchema);

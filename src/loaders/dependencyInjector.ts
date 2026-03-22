@@ -4,10 +4,9 @@ import { AppLogger } from '../services/logger';
 import { AnalyticsService } from '../services/analytics.service';
 import { SocketService } from '../services/socket.service';
 import { UrlShortenerService } from '../services/url.services';
-import { UrlController } from '../api/url.controller';
 import { AuthService } from '../services/auth.service';
-import { AuthController } from '../api/auth.controller';
 import { LocalCacheService } from '../services/cache';
+import { SessionService } from '../services/session.service';
 
 export async function initializeDependencies({
   models,
@@ -24,9 +23,8 @@ export async function initializeDependencies({
   Container.get(UrlShortenerService);
   Container.get(SocketService);
   Container.get(AnalyticsService);
+  Container.get(SessionService);
   Container.get(AuthService);
-  Container.get(UrlController);
-  Container.get(AuthController);
 
   logger.info('Dependency injection container initialized');
 }

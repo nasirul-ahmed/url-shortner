@@ -8,6 +8,7 @@ import { UserModel } from '../models/user.model';
 import { ErrorCodes, ErrorMessages } from '../errors/errorCodes';
 import { AppError } from '../errors/AppError';
 import { IUser } from '../interfaces';
+import { SessionService } from './session.service';
 
 const BCRYPT_SALT_ROUNDS = 12;
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -15,7 +16,10 @@ const LOCK_TIME_MS = 30 * 60 * 1000; // 30 minutes
 
 @Service()
 export class AuthService {
-  constructor(private readonly logger: AppLogger) {}
+  constructor(
+    private readonly logger: AppLogger,
+    private readonly sessionService: SessionService,
+  ) {}
 
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
@@ -100,9 +104,9 @@ export class AuthService {
     await user.save();
 
     // require verified email for non-admin
-    if (!user.emailVerified) {
-      throw new AppError({ code: ErrorCodes.FORBIDDEN, message: 'Email not verified' });
-    }
+    // if (!user.emailVerified) {
+    //   throw new AppError({ code: ErrorCodes.FORBIDDEN, message: 'Email not verified' });
+    // }
 
     const accessToken = this.signJwt(
       { sub: user._id.toString(), role: user.role, email: user.email },
@@ -114,12 +118,26 @@ export class AuthService {
       config.auth.refreshTokenExpiresIn,
     );
 
-    // Optionally store refresh token hash in session collection + device info
-    // Minimal for now.
+    // Create session for refresh token tracking
+    const sessionId = await this.sessionService.createSession({
+      userId: user._id.toString(),
+      refreshToken,
+      userAgent: payload.device,
+      ipAddress: payload.ip,
+      expirySeconds: this.parseExpirySeconds(config.auth.refreshTokenExpiresIn),
+    });
 
-    this.logger.info('User login successful', { data: { userId: user._id, ip: payload.ip, device: payload.device } });
+    this.logger.info('User login successful', {
+      data: { userId: user._id, ip: payload.ip, device: payload.device, sessionId },
+    });
 
-    return { accessToken, refreshToken, expiresIn: config.auth.jwtExpiresIn, refreshExpiresIn: config.auth.refreshTokenExpiresIn };
+    return {
+      accessToken,
+      refreshToken, // Will be set as HttpOnly cookie in controller
+      sessionId,
+      expiresIn: config.auth.jwtExpiresIn,
+      refreshExpiresIn: config.auth.refreshTokenExpiresIn,
+    };
   }
 
   public async forgotPassword(email: string) {
@@ -176,12 +194,31 @@ export class AuthService {
     return { success: true, reason };
   }
 
-  public async refreshToken(existingRefreshToken: string) {
+  public async refreshToken(existingRefreshToken: string, sessionId: string, userAgent?: string, ipAddress?: string) {
     try {
-      const payload = jwt.verify(existingRefreshToken, config.auth.jwtSecret) as { sub: string; role: string; type: string };
+      const payload = jwt.verify(existingRefreshToken, config.auth.jwtSecret) as {
+        sub: string;
+        role: string;
+        type: string;
+      };
 
       if (payload.type !== 'refresh') {
         throw new Error('Token type invalid');
+      }
+
+      // Verify session exists and is valid
+      const session = await this.sessionService.verifyRefreshToken(
+        payload.sub,
+        existingRefreshToken,
+        userAgent,
+        ipAddress,
+      );
+
+      if (!session) {
+        throw new AppError({
+          code: ErrorCodes.UNAUTHORIZED,
+          message: 'Invalid or expired session',
+        });
       }
 
       const user = await UserModel.findById(payload.sub);
@@ -189,13 +226,118 @@ export class AuthService {
         throw new AppError({ code: ErrorCodes.UNAUTHORIZED, message: 'Invalid user session' });
       }
 
-      const accessToken = this.signJwt({ sub: user._id.toString(), role: user.role, email: user.email }, config.auth.jwtExpiresIn);
-      const refreshToken = this.signJwt({ sub: user._id.toString(), role: user.role, type: 'refresh' }, config.auth.refreshTokenExpiresIn);
+      // Generate new tokens (rotation)
+      const newAccessToken = this.signJwt(
+        { sub: user._id.toString(), role: user.role, email: user.email },
+        config.auth.jwtExpiresIn,
+      );
+      const newRefreshToken = this.signJwt(
+        { sub: user._id.toString(), role: user.role, type: 'refresh' },
+        config.auth.refreshTokenExpiresIn,
+      );
 
-      return { accessToken, refreshToken, expiresIn: config.auth.jwtExpiresIn, refreshExpiresIn: config.auth.refreshTokenExpiresIn };
+      // Rotate token in session
+      await this.sessionService.rotateToken(
+        session._id.toString(),
+        newRefreshToken,
+        this.parseExpirySeconds(config.auth.refreshTokenExpiresIn),
+      );
+
+      return {
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+        sessionId: session._id.toString(),
+        expiresIn: config.auth.jwtExpiresIn,
+        refreshExpiresIn: config.auth.refreshTokenExpiresIn,
+      };
     } catch (err) {
-      throw new AppError({ code: ErrorCodes.UNAUTHORIZED, message: 'Refresh token invalid or expired' });
+      if (err instanceof AppError) throw err;
+      throw new AppError({
+        code: ErrorCodes.UNAUTHORIZED,
+        message: 'Refresh token invalid or expired',
+      });
     }
   }
-}
 
+  public async verifyToken(token: string): Promise<IUser | null> {
+    try {
+      const payload = jwt.verify(token, config.auth.jwtSecret) as { sub: string; role: string; type?: string };
+
+      // Don't allow refresh tokens for auth verification
+      if (payload.type === 'refresh') {
+        return null;
+      }
+
+      const user = await UserModel.findById(payload.sub).lean();
+
+      if (!user || user.disabled) {
+        return null;
+      }
+
+      const returnData: IUser = user.toJSON();
+
+      return returnData;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  /**
+   * Logout user - invalidate session
+   */
+  public async logout(sessionId: string, userId: string): Promise<void> {
+    try {
+      await this.sessionService.invalidateSession(sessionId);
+      this.logger.info('User logged out', { data: { userId, sessionId } });
+    } catch (error) {
+      this.logger.error('Logout failed', error);
+      throw new AppError({
+        code: ErrorCodes.INTERNAL_SERVER_ERROR,
+        message: 'Logout failed',
+      });
+    }
+  }
+
+  /**
+   * Logout all devices - invalidate all sessions for user
+   */
+  public async logoutAll(userId: string): Promise<void> {
+    try {
+      await this.sessionService.invalidateAllUserSessions(userId);
+      this.logger.info('User logged out from all devices', { data: { userId } });
+    } catch (error) {
+      this.logger.error('Logout all failed', error);
+      throw new AppError({
+        code: ErrorCodes.INTERNAL_SERVER_ERROR,
+        message: 'Logout all failed',
+      });
+    }
+  }
+
+  /**
+   * Get user active sessions
+   */
+  public async getUserSessions(userId: string) {
+    return this.sessionService.getUserActiveSessions(userId);
+  }
+
+  /**
+   * Parse JWT expiry duration string (e.g., "7d", "15m") to seconds
+   */
+  private parseExpirySeconds(duration: string): number {
+    const match = duration.match(/^(\d+)([smhd])$/);
+    if (!match) throw new Error('Invalid duration format');
+
+    const [, value, unit] = match;
+    const numValue = parseInt(value, 10);
+
+    const multipliers: Record<string, number> = {
+      s: 1,
+      m: 60,
+      h: 60 * 60,
+      d: 24 * 60 * 60,
+    };
+
+    return numValue * (multipliers[unit] || 1);
+  }
+}

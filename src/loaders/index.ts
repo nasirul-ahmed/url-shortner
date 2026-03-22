@@ -3,10 +3,12 @@ import { initializeDependencies } from './dependencyInjector';
 import { connectMongoDB } from './mongoose';
 import { initSocketIO } from './socket-io';
 import { FastifyInstance } from 'fastify';
+import fastifyCookie from '@fastify/cookie';
 import { AppLogger } from '../services/logger/app-logger';
 import { createRedisClient, createRedisSubscriber } from '../redis';
 import { config } from '../config';
-import { health } from '../api/health.controller';
+import { decorateAuthMiddleware } from './decorators';
+import { registerRoutes } from '../api';
 
 export default async ({
   fastify,
@@ -29,37 +31,23 @@ export default async ({
     model: require('../models/url.model').default,
   };
 
-  // 4. Socket.io — attaches to httpServer, uses Redis pub/sub clients
+  const sessionModel = {
+    name: 'sessionModel',
+    model: require('../models/session.model').SessionModel,
+  };
+
+  // Register cookie plugin
+  await fastify.register(fastifyCookie);
+
+  // Initialize Socket.io and dependencies
   await initSocketIO(httpServer, redisPubClient, redisSubClient, logger);
-  await initializeDependencies({ models: [urlModel], logger });
+  await initializeDependencies({ models: [urlModel, sessionModel], logger });
 
-  const Container = require('typedi').default || require('typedi');
-  const { UrlController } = require('../api/url.controller');
-  const { AuthController } = require('../api/auth.controller');
+  // Decorate Fastify with auth middleware
+  await decorateAuthMiddleware(fastify);
 
-  const urlController = Container.get(UrlController);
-  const authController = Container.get(AuthController);
+  // Register all routes
+  await registerRoutes(fastify);
 
-  // Register routes with API prefix
-  await fastify.register(
-    async (api) => {
-      api.get('/health', health);
-
-      // Auth
-      api.post('/auth/register', authController.register.bind(authController));
-      api.post('/auth/verify-email', authController.verifyEmail.bind(authController));
-      api.post('/auth/login', authController.login.bind(authController));
-      api.post('/auth/refresh', authController.refresh.bind(authController));
-      api.post('/auth/forgot-password', authController.forgotPassword.bind(authController));
-      api.post('/auth/reset-password', authController.resetPassword.bind(authController));
-      api.post('/admin/users/:userId/disable', authController.disableUser.bind(authController));
-
-      // URL shortener
-      api.post('/shorten', urlController.shorten.bind(urlController));
-      api.get('/:shortCode', urlController.redirect.bind(urlController));
-    },
-    // { prefix: config.app.apiPrefix },
-  );
-
-  // logger.info('Routes registered', { data: { prefix: config.app.apiPrefix } });
+  logger.info('Routes registered successfully');
 };

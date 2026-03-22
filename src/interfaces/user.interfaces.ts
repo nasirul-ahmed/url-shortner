@@ -1,9 +1,14 @@
+export enum UserRole {
+  USER = 'USER',
+  ADMIN = 'ADMIN',
+}
+
 export interface IUser {
   _id?: string;
   email: string;
   username: string;
   passwordHash: string;
-  role: 'USER' | 'ADMIN';
+  role: UserRole;
   emailVerified: boolean;
   emailVerifyToken?: string;
   emailVerifyTokenExpiresAt?: Date;

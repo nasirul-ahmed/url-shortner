@@ -21,9 +21,8 @@ export async function connectMongoDB(): Promise<void> {
 }
 
 export async function closeMongoDB(): Promise<void> {
-  const logger = Container.get(AppLogger);
   await mongoose.connection.close();
-  logger.info('MongoDB connection closed');
+  console.log('MongoDB connection closed');
 }
 
 function sanitizeUri(uri: string): string {

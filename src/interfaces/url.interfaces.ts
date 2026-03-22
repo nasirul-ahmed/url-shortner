@@ -12,7 +12,7 @@ export interface IUrlDocument {
 
 export interface ICreateUrlPayload {
   longUrl: string;
-  shortCode: string,
+  shortCode?: string,
   customAlias?: string;
   expiresAt?: Date;
   userId?: string;
