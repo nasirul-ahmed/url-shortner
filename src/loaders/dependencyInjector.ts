@@ -7,6 +7,8 @@ import { UrlShortenerService } from '../services/url.services';
 import { AuthService } from '../services/auth.service';
 import { LocalCacheService } from '../services/cache';
 import { SessionService } from '../services/session.service';
+import queueLoader from './queue';
+import { Queue } from 'bullmq';
 
 export async function initializeDependencies({
   models,
@@ -14,9 +16,12 @@ export async function initializeDependencies({
 }: {
   models: { name: string; model: any }[];
   logger: AppLogger;
-}): Promise<void> {
+}): Promise<{ queue: Queue }> {
   // Load all the models into the container first, so they're available for repositories and services
   models.forEach((model) => Container.set(model.name, model));
+
+  const queue = queueLoader();
+  Container.set(queue.name, queue);
 
   // Ensure key services are instantiated early so they set up their lifecycle hooks.
   Container.get(LocalCacheService);
@@ -27,4 +32,6 @@ export async function initializeDependencies({
   Container.get(AuthService);
 
   logger.info('Dependency injection container initialized');
+
+  return { queue };
 }

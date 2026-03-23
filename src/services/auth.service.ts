@@ -1,4 +1,4 @@
-import { Service } from 'typedi';
+import { Inject, Service } from 'typedi';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -9,6 +9,8 @@ import { ErrorCodes, ErrorMessages } from '../errors/errorCodes';
 import { AppError } from '../errors/AppError';
 import { IUser } from '../interfaces';
 import { SessionService } from './session.service';
+import { Queue } from 'bullmq';
+import { JobIdEnums } from '../loaders/worker';
 
 const BCRYPT_SALT_ROUNDS = 12;
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -19,6 +21,7 @@ export class AuthService {
   constructor(
     private readonly logger: AppLogger,
     private readonly sessionService: SessionService,
+    @Inject('shorturl-queue') private queue: Queue,
   ) {}
 
   private hashToken(token: string): string {
@@ -50,18 +53,42 @@ export class AuthService {
       loginAttempts: 0,
     });
 
-    // TODO: send email: sendVerificationEmail(user.email, emailVerifyToken)
+    console.log({ user: user.toJSON() });
 
-    this.logger.info('New user registered', { data: { userId: user._id } });
+    if (user._id) {
+      const queueData = {
+        to: user.email,
+        subject: 'Welcome!',
+        template: 'welcome',
+        variables: {
+          name: user.username || payload.username,
+          verifyUrl: `http://localhost:3000/auth/verify-email/${emailVerifyToken}`,
+        },
+      };
+
+      await this.queue.add(JobIdEnums.SEND_WELCOME_EMAIL, queueData, {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 1000 },
+      });
+
+      this.logger.info('Queued a new ==== welcome email ==== with', { data: queueData });
+    }
+
+    this.logger.info('New user registered', { data: { userId: user._id.toString() } });
     return { userId: user._id.toString(), email: user.email, username: user.username };
   }
 
   public async verifyEmail(token: string) {
     const user = await UserModel.findOne({
       emailVerifyToken: token,
-      emailVerifyTokenExpiresAt: { $gt: new Date() },
     });
+
     if (!user) {
+      throw new AppError({ code: ErrorCodes.NOT_FOUND, message: 'User not found' });
+    }
+
+    // emailVerifyTokenExpiresAt: { $gt: new Date() },
+    if (user.emailVerifyTokenExpiresAt < new Date()) {
       throw new AppError({ code: ErrorCodes.BAD_REQUEST, message: 'Invalid or expired verification token' });
     }
 
@@ -70,7 +97,7 @@ export class AuthService {
     user.emailVerifyTokenExpiresAt = undefined;
     await user.save();
 
-    return { success: true, email: user.email };
+    return { success: true, ...user };
   }
 
   public async login(payload: { email: string; password: string; ip?: string; device?: string }) {
@@ -104,9 +131,9 @@ export class AuthService {
     await user.save();
 
     // require verified email for non-admin
-    // if (!user.emailVerified) {
-    //   throw new AppError({ code: ErrorCodes.FORBIDDEN, message: 'Email not verified' });
-    // }
+    if (!user.emailVerified) {
+      throw new AppError({ code: ErrorCodes.FORBIDDEN, message: 'Email not verified' });
+    }
 
     const accessToken = this.signJwt(
       { sub: user._id.toString(), role: user.role, email: user.email },
@@ -149,9 +176,24 @@ export class AuthService {
     const token = crypto.randomBytes(24).toString('hex');
     user.resetPasswordTokenHash = this.hashToken(token);
     user.resetPasswordExpiresAt = new Date(Date.now() + config.auth.resetPasswordTokenExpirySeconds * 1000);
+    
     await user.save();
 
-    // TODO: send email with token link
+    const queueData = {
+      to: user.email,
+      subject: 'ShortCode - Password Reset',
+      template: 'reset-password',
+      variables: {
+        resetUrl: `${config.app.baseUrl}/auth/forgot-password`,
+        expires: user.resetPasswordExpiresAt,
+      },
+    };
+
+    await this.queue.add(JobIdEnums.SEND_FORGOT_PASSWORD, queueData, {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 1000 },
+    });
+
     this.logger.info('Password reset requested', { data: { userId: user._id } });
 
     return { message: 'If this email exists, reset instructions were sent' };

@@ -51,9 +51,12 @@ export class AppLogger implements IAppLogger {
       return [higherOrderLogs, message];
     }
 
-    if (!payload?.error) {
+    if (payload?.error) {
       const data = removeSensitiveData(payload.data, sensitiveKeys, this.maxDepth);
       return [higherOrderLogs, `${message}, payload: %j`, data];
     }
+
+    const data = removeSensitiveData(payload.data, sensitiveKeys, this.maxDepth);
+    return [higherOrderLogs, `${message}, payload: %j`, data];
   }
 }

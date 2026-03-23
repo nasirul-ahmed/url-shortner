@@ -1,0 +1,37 @@
+<mjml>
+  <mj-head>
+    <mj-title><%= title %></mj-title>
+    <mj-attributes>
+      <mj-all font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"></mj-all>
+      <mj-text font-size="16px" color="#333" line-height="24px"></mj-text>
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#f4f7f9">
+    <mj-section padding-top="50px">
+      <mj-column background-color="#ffffff" padding="40px" border-radius="8px">
+        
+       <mj-image 
+        src="<%= status === 'success' ? 'https://cdn-icons-png.flaticon.com/512/190/190411.png' : 'https://cdn-icons-png.flaticon.com/512/564/564619.png' %>" 
+        alt="<%= status === 'success' ? 'Success' : 'Error' %>" 
+        width="80px">
+      </mj-image>
+        
+        <mj-text align="center" font-size="24px" font-weight="bold" color="<%= status === 'success' ? '#2dce89' : '#f5365c' %>">
+          <%= title %>
+        </mj-text>
+        
+        <mj-text align="center">
+          <%= message %>
+        </mj-text>
+        
+        <mj-button background-color="#5e72e4" color="white" href="<%= btnUrl %>" font-weight="bold" border-radius="4px" padding-top="20px">
+          <%= btnText %>
+        </mj-button>
+        
+        <mj-text align="center" font-size="13px" color="#8898aa" padding-top="30px">
+          <%= subtext %>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

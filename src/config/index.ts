@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-
+import path from 'path';
 /**
  * Central configuration module - reads from environment variables
  * with sensible production defaults.
@@ -63,6 +63,15 @@ export const config = {
     emailVerificationTokenExpirySeconds: 60 * 60 * 24,
     resetPasswordTokenExpirySeconds: 60 * 60,
   },
+  mailer: {
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: process.env.SMTP_PORT || 587,
+    secure: process.env.SMTP_SECURE || false,
+    username: process.env.SMTP_USERNAME || 'nasirulahmed44@gmail.com',
+    password: process.env.SMTP_PASSWORD || 'abcd cdef efgh ijkl',
+    fromAddress: process.env.SMTP_FROM_ADDRESS || 'nasirulahmed44@gmail.com',
+  },
 } as const;
 
 export type Config = typeof config;
+export const TEMPLATE_DIR = path.join(process.cwd(), 'src', 'templates');

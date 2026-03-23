@@ -9,6 +9,7 @@ import { createRedisClient, createRedisSubscriber } from '../redis';
 import { config } from '../config';
 import { decorateAuthMiddleware } from './decorators';
 import { registerRoutes } from '../api';
+import workers from './worker';
 
 export default async ({
   fastify,
@@ -26,22 +27,30 @@ export default async ({
 
   await connectMongoDB();
 
-  const urlModel = {
-    name: 'urlModel',
-    model: require('../models/url.model').default,
-  };
-
-  const sessionModel = {
-    name: 'sessionModel',
-    model: require('../models/session.model').SessionModel,
-  };
+  const models = [
+    {
+      name: 'userModel',
+      model: require('../models/user.model').default,
+    },
+    {
+      name: 'urlModel',
+      model: require('../models/url.model').default,
+    },
+    {
+      name: 'sessionModel',
+      model: require('../models/session.model').SessionModel,
+    },
+  ];
 
   // Register cookie plugin
   await fastify.register(fastifyCookie);
 
   // Initialize Socket.io and dependencies
   await initSocketIO(httpServer, redisPubClient, redisSubClient, logger);
-  await initializeDependencies({ models: [urlModel, sessionModel], logger });
+
+  const { queue } = await initializeDependencies({ models, logger });
+
+  workers({ queue, logger });
 
   // Decorate Fastify with auth middleware
   await decorateAuthMiddleware(fastify);

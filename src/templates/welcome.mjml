@@ -1,0 +1,41 @@
+<mjml>
+  <mj-head>
+    <mj-title>Welcome to ShortURL</mj-title>
+    <mj-attributes>
+      <mj-all font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"></mj-all>
+      <mj-text font-size="16px" color="#333333" line-height="24px"></mj-text>
+      <mj-section padding="20px"></mj-section>
+    </mj-attributes>
+    <mj-style>
+      .link-style { color: #5e72e4; text-decoration: none; font-weight: bold; }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#f4f7f9">
+    <mj-section padding-bottom="0px" background-color="#ffffff">
+      <mj-column width="100%">
+        <mj-image src="https://your-logo-url.com/logo.png" alt="ShortURL Logo" width="150px"></mj-image>
+        <mj-divider border-color="#5e72e4" border-width="2px"></mj-divider>
+      </mj-column>
+    </mj-section>
+    <mj-section background-color="#ffffff">
+      <mj-column>
+        <mj-text font-size="20px" font-weight="bold">Hi <%= name %>,</mj-text>
+        <mj-text>Welcome to **ShortURL**! We're excited to help you manage and track your short links. Before we get started, please verify your email address.</mj-text>
+        <mj-button background-color="#5e72e4" color="white" href="<%= verifyUrl %>" font-weight="bold" border-radius="4px" padding-top="20px">
+          Verify My Email
+        </mj-button>
+        <mj-text font-size="12px" color="#8898aa" padding-top="30px">
+          If the button doesn't work, copy and paste this link into your browser: <br />
+          <a href="<%= verifyUrl %>" class="link-style"><%= verifyUrl %></a>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section>
+      <mj-column>
+        <mj-text align="center" font-size="12px" color="#8898aa">
+          &copy; 2026 ShortURL Inc. All rights reserved.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

@@ -2,13 +2,16 @@ import 'reflect-metadata';
 import Fastify, { FastifyInstance } from 'fastify';
 import fastifyCors from '@fastify/cors';
 import fastifyCompress from '@fastify/compress';
-import { config } from '../config';
+import { config, TEMPLATE_DIR } from '../config';
 import { AppLogger } from '../services/logger/app-logger';
 import fastifyRateLimit from '@fastify/rate-limit';
 import { ErrorCodes } from '../errors';
 import { AppError } from '../errors/AppError';
 import { ZodError } from 'zod';
 import { ErrorMessages } from '../errors/errorCodes';
+import view from '@fastify/view';
+import ejs from 'ejs';
+import path from 'node:path';
 
 export async function createApp(logger: AppLogger): Promise<{
   fastify: FastifyInstance;
@@ -30,6 +33,13 @@ export async function createApp(logger: AppLogger): Promise<{
     encodings: ['gzip', 'deflate'],
   });
 
+  await fastify.register(view, {
+    engine: {
+      ejs: ejs,
+    },
+    root: TEMPLATE_DIR
+  });
+
   // await fastify.register(fastifyRateLimit, {
   //   max: config.rateLimit.max,
   //   timeWindow: config.rateLimit.timeWindow,
@@ -41,7 +51,7 @@ export async function createApp(logger: AppLogger): Promise<{
   // });
 
   fastify.setErrorHandler((error, _request, reply) => {
-    console.log(error)
+    console.log(error);
     logger.error('API Error:', { data: error as unknown as Record<string, unknown> });
 
     if (error instanceof AppError) {

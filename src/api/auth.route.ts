@@ -27,16 +27,34 @@ export default async function (fastify: FastifyInstance) {
   });
 
   // verify email
-  fastify.post('/auth/verify-email', async (request: FastifyRequest, reply: FastifyReply) => {
-    const body = request.body as { token?: string };
+  fastify.get('/auth/verify-email/:token', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { token } = request.params as { token: string };
+      const user = await authService.verifyEmail(token);
 
-    if (!body.token) {
-      reply.status(400).send({ message: 'Missing token' });
-      return;
+      console.log({ user });
+
+      // on success send success
+      return reply.view('email-verify-status.ejs', {
+        status: 'success',
+        title: 'Email Verified!',
+        message: `Hi ${user.username}, your account is now active.`,
+        btnText: 'Go to Dashboard',
+        btnUrl: `http://localhost:3000/login`,
+        subtext: 'You can now close this window.',
+      });
+    } catch (error) {
+      console.log(error)
+      // on ERROR or EXPIRED send view accordingly
+      return reply.view('email-verify-status.ejs', {
+        status: 'error',
+        title: 'Link Expired',
+        message: error?.message ?? 'The verification link is invalid or has already been used.',
+        btnText: 'Resend Email',
+        btnUrl: `http://localhost:3000/resend-verification`,
+        subtext: 'Contact support if you continue to have issues.',
+      });
     }
-
-    const result = await authService.verifyEmail(body.token);
-    reply.send(result);
   });
 
   fastify.post('/auth/login', async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {

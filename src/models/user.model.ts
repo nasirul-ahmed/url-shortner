@@ -23,6 +23,7 @@ const UserSchema = new Schema<IUserModel>(
     versionKey: false,
     toJSON: {
       transform: (doc, ret) => {
+        ret['id'] = ret._id.toString();
         delete ret.passwordHash;
         delete ret.emailVerifyToken;
         delete ret.resetPasswordTokenHash;
