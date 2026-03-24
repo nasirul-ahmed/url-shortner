@@ -23,9 +23,11 @@ export async function createApp(logger: AppLogger): Promise<{
     bodyLimit: 1048576,
   });
 
-  await fastify.register(fastifyCors, {
-    origin: process.env.CORS_ORIGIN || '*',
-    methods: ['GET', 'POST', 'DELETE'],
+  fastify.register(fastifyCors, {
+    origin: 'http://localhost:3000',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],
+    credentials: true, // Crucial for HttpOnly cookies and session rotation
   });
 
   await fastify.register(fastifyCompress, {
@@ -37,7 +39,7 @@ export async function createApp(logger: AppLogger): Promise<{
     engine: {
       ejs: ejs,
     },
-    root: TEMPLATE_DIR
+    root: TEMPLATE_DIR,
   });
 
   // await fastify.register(fastifyRateLimit, {
