@@ -21,9 +21,12 @@ const UserSchema = new Schema<IUserModel>(
   {
     timestamps: true,
     versionKey: false,
+    virtuals: true,
+    toObject: { virtuals: true },
     toJSON: {
-      transform: (doc, ret) => {
-        ret['id'] = ret._id.toString();
+      transform: (doc, ret: any) => {
+        ret._id = ret._id.toString();
+        ret.id = ret._id.toString();
         delete ret.passwordHash;
         delete ret.emailVerifyToken;
         delete ret.resetPasswordTokenHash;

@@ -53,7 +53,7 @@ export default async ({
   workers({ queue, logger });
 
   // Decorate Fastify with auth middleware
-  await decorateAuthMiddleware(fastify);
+  await decorateAuthMiddleware(fastify, logger);
 
   // Register all routes
   await registerRoutes(fastify);

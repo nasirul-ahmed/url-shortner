@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { FastifyRequest } from 'fastify';
 
 interface ISensitiveMap extends Record<string, string> {}
@@ -88,8 +89,6 @@ export const parseMaxAge = (duration: string): number => {
 
   return numValue * (multipliers[unit] || 1);
 };
-
-import { Types } from 'mongoose';
 
 export const convertToObjectId = (data) => {
   return new Types.ObjectId(data);

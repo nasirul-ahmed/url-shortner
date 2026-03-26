@@ -176,7 +176,7 @@ export class AuthService {
     const token = crypto.randomBytes(24).toString('hex');
     user.resetPasswordTokenHash = this.hashToken(token);
     user.resetPasswordExpiresAt = new Date(Date.now() + config.auth.resetPasswordTokenExpirySeconds * 1000);
-    
+
     await user.save();
 
     const queueData = {
@@ -310,17 +310,17 @@ export class AuthService {
         return null;
       }
 
-      const user = await UserModel.findById(payload.sub).lean();
+      const user = await UserModel.findById(payload.sub);
 
       if (!user || user.disabled) {
-        return null;
+        throw new AppError({ code: ErrorCodes.NOT_FOUND, message: 'User not found or disabled' });
       }
 
-      const returnData: IUser = user.toJSON();
+      const returnData = user.toJSON() as unknown as IUser;
 
       return returnData;
     } catch (err) {
-      return null;
+      throw new AppError({ code: ErrorCodes.NOT_FOUND, message: 'User not found or disabled' });
     }
   }
 

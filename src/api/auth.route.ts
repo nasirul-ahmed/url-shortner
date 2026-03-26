@@ -44,7 +44,6 @@ export default async function (fastify: FastifyInstance) {
         subtext: 'You can now close this window.',
       });
     } catch (error) {
-      console.log(error)
       // on ERROR or EXPIRED send view accordingly
       return reply.view('email-verify-status.ejs', {
         status: 'error',
@@ -110,19 +109,13 @@ export default async function (fastify: FastifyInstance) {
     reply.send(result);
   });
 
-  // Protected Routes
-  fastify.get(
-    '/profile',
-    { preHandler: fastify.authenticate },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      return request.user;
-    },
-  );
-
+  // protected routes
   fastify.post(
     '/auth/refresh',
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+      logger.info('/auth/refresh called', { data: { ...(request.body as any), cookies: request.cookies } });
+
       const refreshToken = request.cookies.refreshToken;
       const sessionId = (request.body as any)?.sessionId;
 
@@ -161,23 +154,8 @@ export default async function (fastify: FastifyInstance) {
     '/auth/me',
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-      if (!request.user) {
-        reply.status(401).send({ message: 'Not authenticated' });
-        return;
-      }
-
-      reply.status(200).send({
-        user: {
-          _id: request.user._id,
-          email: request.user.email,
-          username: request.user.username,
-          role: request.user.role,
-          emailVerified: request.user.emailVerified,
-          disabled: request.user.disabled,
-          lastLoginAt: request.user.lastLoginAt,
-          createdAt: request.user.createdAt,
-        },
-      });
+      logger.info('/auth/me ====> called ');
+      reply.send(request.user);
     },
   );
 
