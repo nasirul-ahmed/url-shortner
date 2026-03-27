@@ -43,4 +43,18 @@ export default async function (fastify: FastifyInstance) {
 
     reply.redirect(longUrl);
   });
+
+  fastify.get(
+    '/links',
+    {
+      preHandler: fastify.authenticate,
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { limit: limit, page } = request.params as { limit: number; page: number };
+
+      const data = await urlService.links(limit, page, request.user);
+
+      reply.send(data);
+    },
+  );
 }

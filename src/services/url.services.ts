@@ -2,13 +2,14 @@ import { Service } from 'typedi';
 import { AppLogger } from './logger';
 import { CacheService } from './cache/cache-client';
 import { RedlockClient } from './cache/redlock';
-import { ICreateUrlPayload } from '../interfaces';
+import { ICreateUrlPayload, IUser } from '../interfaces';
 import { buildShortUrl, generateShortCode, isValidAlias, isValidUrl, normalizeUrl } from '../utils/shortCode';
 import { AppError } from '../errors/AppError';
 import { ErrorCodes } from '../errors';
 import { UrlModel } from '../models/url.model';
 import { Lock } from 'redlock';
 import { LocalCacheService } from './cache';
+import { convertToObjectId } from '../utils/helper';
 
 export const SHORT_CODE_LIFE = 60 * 60 * 24; // 24h for shortCode life
 
@@ -129,6 +130,61 @@ export class UrlShortenerService {
     this.setLocalCacheMapping(shortCode, urlDoc.longUrl);
 
     return urlDoc.longUrl;
+  }
+
+  public async links(limit: number, page: number, user: IUser) {
+    const skip = (page - 1) * limit;
+    const query: any = {
+      user: convertToObjectId(user._id),
+    };
+
+    // const response = await UrlModel.aggregate([
+    //   { $match: matchStage },
+    //   { $sort: { createdAt: -1 } },
+    //   {
+    //     $facet: {
+    //       metadata: [{ $count: 'total' }],
+    //       /* {
+    //         $lookup: {
+    //           from: "users",
+    //           localField: "user",
+    //           foreignField: "_id",
+    //           as: "userDetails"
+    //         }
+    //       },
+    //       { $unwind: "$userDetails" }
+    //       */
+    //       data: [{ $skip: skip }, { $limit: limit }],
+    //     },
+    //   },
+    //   {
+    //     $project: {
+    //       total: { $arrayElemAt: ['$metadata.total', 0] },
+    //       links: '$data',
+    //     },
+    //   },
+    // ]);
+
+    // const returnData = response[0] || { total: 0, links: [] };
+
+    const [links, total] = await Promise.all([
+      UrlModel.find(query)
+        .sort({ createdAt: -1 }) // Ensure you have an index on { user: 1, createdAt: -1 }
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      UrlModel.countDocuments(query),
+    ]);
+
+    return {
+      links: links,
+      pagination: {
+        total: total || 0,
+        page,
+        limit,
+        totalPages: Math.ceil((total || 0) / limit),
+      },
+    };
   }
 
   private async generateUniqueCode(attempts = 0): Promise<string> {
