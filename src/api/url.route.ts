@@ -5,6 +5,8 @@ import { ICreateUrlPayload } from '../interfaces';
 import { UrlShortenerService } from '../services/url.services';
 import { AnalyticsService } from '../services/analytics.service';
 import { AppLogger } from '../services/logger';
+import { AppError } from '../errors/AppError';
+import { ErrorCodes } from '../errors';
 
 export default async function (fastify: FastifyInstance) {
   const logger = Container.get(AppLogger);
@@ -47,14 +49,38 @@ export default async function (fastify: FastifyInstance) {
   fastify.get(
     '/links',
     {
-      preHandler: fastify.authenticate,
+      preHandler: [fastify.authenticate],
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { limit: limit, page } = request.params as { limit: number; page: number };
+      logger.info('/links api called ==> ', { data: request.query as any });
+      const { limit, page } = request.query as { limit: number; page: number };
+
+      // console.log({ limit, page });
+
+      if (!request.user) {
+        throw new AppError({ code: ErrorCodes.UNAUTHORIZED });
+      }
 
       const data = await urlService.links(limit, page, request.user);
 
-      reply.send(data);
+      // console.log(JSON.stringify(data));
+      // reply.send(data);
+
+      return data;
+    },
+  );
+
+  fastify.get(
+    '/dashboard',
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      logger.info('/dashboard api called ==> ');
+
+      const result = await urlService.dashboard(request.query as { startDate: string; endDate: string }, request.user);
+
+      return result;
     },
   );
 }

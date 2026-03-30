@@ -6,7 +6,6 @@ import { FastifyInstance } from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import { AppLogger } from '../services/logger/app-logger';
 import { createRedisClient, createRedisSubscriber } from '../redis';
-import { config } from '../config';
 import { decorateAuthMiddleware } from './decorators';
 import { registerRoutes } from '../api';
 import workers from './worker';

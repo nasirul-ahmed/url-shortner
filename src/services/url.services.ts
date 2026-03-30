@@ -10,6 +10,8 @@ import { UrlModel } from '../models/url.model';
 import { Lock } from 'redlock';
 import { LocalCacheService } from './cache';
 import { convertToObjectId } from '../utils/helper';
+import dayjs from 'dayjs';
+import { PipelineStage } from 'mongoose';
 
 export const SHORT_CODE_LIFE = 60 * 60 * 24; // 24h for shortCode life
 
@@ -138,6 +140,8 @@ export class UrlShortenerService {
       user: convertToObjectId(user._id),
     };
 
+    console.log({ query });
+
     // const response = await UrlModel.aggregate([
     //   { $match: matchStage },
     //   { $sort: { createdAt: -1 } },
@@ -168,15 +172,11 @@ export class UrlShortenerService {
     // const returnData = response[0] || { total: 0, links: [] };
 
     const [links, total] = await Promise.all([
-      UrlModel.find(query)
-        .sort({ createdAt: -1 }) // Ensure you have an index on { user: 1, createdAt: -1 }
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+      UrlModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       UrlModel.countDocuments(query),
     ]);
 
-    return {
+    const returnData = {
       links: links,
       pagination: {
         total: total || 0,
@@ -185,6 +185,58 @@ export class UrlShortenerService {
         totalPages: Math.ceil((total || 0) / limit),
       },
     };
+
+    // this.logger.info('return Data', { data: returnData });
+
+    return returnData;
+  }
+
+  public async dashboard(input: { startDate: string; endDate: string }, user: IUser) {
+    const start = input.startDate
+      ? dayjs(input.startDate).startOf('day').toDate()
+      : dayjs().subtract(7, 'days').startOf('day').toDate();
+
+    const end = input.endDate ? dayjs(input.endDate).endOf('day').toDate() : dayjs().endOf('day').toDate();
+
+    const pipelines: PipelineStage[] = [
+      {
+        $match: {
+          // userId: convertToObjectId(user._id),
+          updatedAt: {
+            $gte: start,
+            $lt: end,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalLinks: { $sum: 1 },
+          totalClicks: { $sum: '$clickCount' },
+          avgClicks: { $avg: '$clickCount' },
+          uniqueVisitors: { $addToSet: '$longUrl' },
+          activeLinksCount: {
+            $sum: { $cond: [{ $eq: ['$isActive', true] }, 1, 0] },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          totalLinks: 1,
+          totalClicks: 1,
+          avgClicks: { $round: ['$avgClicks', 2] },
+          uniqueVisitors: { $size: '$uniqueVisitors' },
+          activeLinksCount: '$activeLinksCount',
+        },
+      },
+    ];
+
+    const [result] = await UrlModel.aggregate(pipelines);
+
+    this.logger.info('dashboard aggregation result', { data: result as any });
+
+    return result || { totalLinks: 0, totalClicks: 0, avgClicks: 0, uniqueVisitors: 0, activeLinksCount: 0 };
   }
 
   private async generateUniqueCode(attempts = 0): Promise<string> {
