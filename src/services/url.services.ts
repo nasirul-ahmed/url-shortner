@@ -136,11 +136,6 @@ export class UrlShortenerService {
 
   public async links(limit: number, page: number, user: IUser) {
     const skip = (page - 1) * limit;
-    const query: any = {
-      user: convertToObjectId(user._id),
-    };
-
-    console.log({ query });
 
     // const response = await UrlModel.aggregate([
     //   { $match: matchStage },
@@ -171,8 +166,12 @@ export class UrlShortenerService {
 
     // const returnData = response[0] || { total: 0, links: [] };
 
+    const query: any = {
+      user: convertToObjectId(user._id),
+    };
+
     const [links, total] = await Promise.all([
-      UrlModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      UrlModel.find(query).sort({ clickCount: -1, createdAt: -1 }).skip(skip).limit(limit).lean(),
       UrlModel.countDocuments(query),
     ]);
 
