@@ -1,9 +1,11 @@
-import pino, { Logger } from 'pino';
+import pino, { Logger, transport } from 'pino';
 import { config } from '../../config';
 
 export type PinoLogger = Logger;
 
 export function buildPinoLogger(): PinoLogger {
+  const isProduction = process.env.NODE_ENV === 'production';
+
   const pretty = {
     levelFirst: true,
     ignore: 'pid,hostname',
@@ -11,7 +13,7 @@ export function buildPinoLogger(): PinoLogger {
     colorize: false,
   };
 
-  const logger = pino({
+  const pinoConfig: any = {
     level: config.logs.level,
     formatters: {
       level: (label) => ({ level: label }),
@@ -21,11 +23,16 @@ export function buildPinoLogger(): PinoLogger {
       const time = new Date().toISOString();
       return `,"time":"${time}"`;
     },
-    transport: {
+  };
+
+  if (!isProduction) {
+    pinoConfig.transport = {
       target: 'pino-pretty',
       options: pretty,
-    },
-  });
+    };
+  }
+
+  const logger = pino(pinoConfig);
 
   return logger;
 }

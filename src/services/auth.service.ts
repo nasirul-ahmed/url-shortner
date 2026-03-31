@@ -1,5 +1,5 @@
 import { Inject, Service } from 'typedi';
-import bcrypt from 'bcrypt';
+import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { config } from '../config';
@@ -38,7 +38,7 @@ export class AuthService {
       throw new AppError({ code: ErrorCodes.BAD_REQUEST, message: 'Email or username already exists' });
     }
 
-    const passwordHash = await bcrypt.hash(payload.password, BCRYPT_SALT_ROUNDS);
+    const passwordHash = await bcryptjs.hash(payload.password, BCRYPT_SALT_ROUNDS);
     const emailVerifyToken = crypto.randomBytes(24).toString('hex');
 
     const user = await UserModel.create({
@@ -62,7 +62,7 @@ export class AuthService {
         template: 'welcome',
         variables: {
           name: user.username || payload.username,
-          verifyUrl: `http://localhost:3000/auth/verify-email/${emailVerifyToken}`,
+          verifyUrl: `${config.app.baseUrl}/auth/verify-email/${emailVerifyToken}`,
         },
       };
 
@@ -114,7 +114,7 @@ export class AuthService {
       throw new AppError({ code: ErrorCodes.FORBIDDEN, message: 'Account temporarily locked due to failed logins' });
     }
 
-    const valid = await bcrypt.compare(payload.password, user.passwordHash);
+    const valid = await bcryptjs.compare(payload.password, user.passwordHash);
     if (!valid) {
       user.loginAttempts += 1;
       if (user.loginAttempts >= MAX_LOGIN_ATTEMPTS) {
@@ -210,7 +210,7 @@ export class AuthService {
       throw new AppError({ code: ErrorCodes.BAD_REQUEST, message: 'Invalid or expired password reset token' });
     }
 
-    user.passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
+    user.passwordHash = await bcryptjs.hash(newPassword, BCRYPT_SALT_ROUNDS);
     user.resetPasswordTokenHash = undefined;
     user.resetPasswordExpiresAt = undefined;
     user.loginAttempts = 0;

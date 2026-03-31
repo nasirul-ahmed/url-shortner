@@ -6,7 +6,12 @@ import { AppLogger } from '../services/logger/app-logger';
 export type Redis = ioredis.Redis;
 
 export function createRedisClient(): Redis {
-  const client = new ioredis.Redis({ path: config.redis.redisUrl, maxRetriesPerRequest: null });
+  const client = new ioredis.Redis({
+    host: config.redis.host,
+    port: config.redis.port,
+    // path: config.redis.redisUrl,
+    maxRetriesPerRequest: null,
+  });
   const logger: AppLogger = Container.get(AppLogger);
 
   client.on('connect', () => logger.info(`Redis connected`));
@@ -30,7 +35,12 @@ export function createRedisClient(): Redis {
  * @returns Redis subscriber client
  */
 export function createRedisSubscriber(): Redis {
-  const subscriber = new ioredis.Redis({ path: config.redis.redisUrl, maxRetriesPerRequest: null });
+  const subscriber = new ioredis.Redis({
+    // path: config.redis.redisUrl,
+    host: config.redis.host,
+    port: config.redis.port,
+    maxRetriesPerRequest: null,
+  });
   const logger: AppLogger = Container.get(AppLogger);
 
   subscriber.on('connect', () => logger.info(`Redis subscriber connected`));

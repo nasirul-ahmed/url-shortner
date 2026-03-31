@@ -3,6 +3,9 @@ import { Container } from 'typedi';
 import { AuthService } from '../services/auth.service';
 import { parseMaxAge } from '../utils/helper';
 import { AppLogger } from '../services/logger';
+import { config } from '../config';
+import { AppError } from '../errors/AppError';
+import { ErrorCodes } from '../errors';
 
 export default async function (fastify: FastifyInstance) {
   const authService = Container.get(AuthService);
@@ -23,7 +26,7 @@ export default async function (fastify: FastifyInstance) {
       password: body.password,
     });
 
-    reply.status(201).send(result);
+    return result;
   });
 
   // verify email
@@ -40,7 +43,7 @@ export default async function (fastify: FastifyInstance) {
         title: 'Email Verified!',
         message: `Hi ${user.username}, your account is now active.`,
         btnText: 'Go to Dashboard',
-        btnUrl: `http://localhost:3000/login`,
+        btnUrl: `${config.app.baseUrl}/login`,
         subtext: 'You can now close this window.',
       });
     } catch (error) {
@@ -50,17 +53,17 @@ export default async function (fastify: FastifyInstance) {
         title: 'Link Expired',
         message: error?.message ?? 'The verification link is invalid or has already been used.',
         btnText: 'Resend Email',
-        btnUrl: `http://localhost:3000/resend-verification`,
+        btnUrl: `${config.app.baseUrl}/resend-verification`,
         subtext: 'Contact support if you continue to have issues.',
       });
     }
   });
 
-  fastify.post('/auth/login', async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+  fastify.post('/auth/login', async (request: FastifyRequest, reply: FastifyReply) => {
     const body = request.body as { email?: string; password?: string; device?: string };
+
     if (!body.email || !body.password) {
-      reply.status(400).send({ message: 'Missing email or password' });
-      return;
+      throw new AppError({ code: ErrorCodes.BAD_REQUEST, message: 'Missing email or password' });
     }
 
     const result = await authService.login({
@@ -80,11 +83,12 @@ export default async function (fastify: FastifyInstance) {
     });
 
     // Return only access token in JSON (not refreshToken since it's in cookie)
-    reply.status(200).send({
+    // reply.status(200).send();
+    return {
       accessToken: result.accessToken,
       sessionId: result.sessionId,
       expiresIn: result.expiresIn,
-    });
+    };
   });
 
   fastify.post('/auth/forgot-password', async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {

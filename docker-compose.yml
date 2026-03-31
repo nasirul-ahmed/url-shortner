@@ -1,0 +1,22 @@
+services:
+  api:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MONGODB_URI=${MONGODB_URI}
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    container_name: url-shortener-redis
+    restart: always
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

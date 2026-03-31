@@ -21,7 +21,7 @@ export default async function (fastify: FastifyInstance) {
       const body = request.body as { reason?: string };
       const result = await authService.disableUser(userId, body.reason ?? 'No reason provided');
 
-      reply.send(result);
+      return result;
     },
   );
 }

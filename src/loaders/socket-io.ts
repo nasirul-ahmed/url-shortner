@@ -36,7 +36,7 @@ export async function initSocketIO(
 
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3000',
+      origin: process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:4000',
       methods: ['GET', 'POST'],
     },
     transports: ['websocket', 'polling'],

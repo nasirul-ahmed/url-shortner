@@ -1,18 +1,23 @@
 import 'reflect-metadata';
 import path from 'path';
+import dotenv from 'dotenv';
+
 /**
  * Central configuration module - reads from environment variables
  * with sensible production defaults.
  */
+
+// dotenv.config();
+
 export const config = {
   logs: {
     level: process.env.LOG_LEVEL || 'info',
   },
   app: {
-    port: parseInt(process.env.PORT || '3000', 10),
+    port: parseInt(process.env.PORT || '4000', 10),
     nodeEnv: process.env.NODE_ENV || 'development',
     apiPrefix: process.env.API_PREFIX || '/api/v1',
-    baseUrl: process.env.BASE_URL || 'http://localhost:3000',
+    baseUrl: process.env.BASE_URL || 'http://localhost:4000',
     instanceId: process.env.INSTANCE_ID || `instance-${process.pid}`,
   },
 
@@ -37,7 +42,7 @@ export const config = {
   },
 
   mongodb: {
-    uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/url-shortener',
+    uri: process.env.MONGODB_URI,
     options: {
       maxPoolSize: 20,
       minPoolSize: 5,

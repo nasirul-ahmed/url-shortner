@@ -11,7 +11,6 @@ import { ZodError } from 'zod';
 import { ErrorMessages } from '../errors/errorCodes';
 import view from '@fastify/view';
 import ejs from 'ejs';
-import path from 'node:path';
 
 export async function createApp(logger: AppLogger): Promise<{
   fastify: FastifyInstance;
@@ -24,7 +23,7 @@ export async function createApp(logger: AppLogger): Promise<{
   });
 
   fastify.register(fastifyCors, {
-    origin: 'http://localhost:3000',
+    origin: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],
     credentials: true, // Crucial for HttpOnly cookies and session rotation
@@ -52,28 +51,53 @@ export async function createApp(logger: AppLogger): Promise<{
   //   }),
   // });
 
-  fastify.setErrorHandler((error, _request, reply) => {
-    console.log(error);
-    logger.error('API Error:', { data: error as unknown as Record<string, unknown> });
+  // src/loaders/fastify.ts
+
+  fastify.addHook('preSerialization', async (request, reply, payload) => {
+    if (payload && typeof payload === 'object' && 'success' in payload) {
+      return payload;
+    }
+
+    return {
+      success: true,
+      data: payload || {},
+      error: null,
+    };
+  });
+
+  fastify.setErrorHandler((error, request, reply) => {
+    // console.log(error);
+    logger.error('API Error:', { error: error, context: request.url });
+
+    let statusCode = 500;
+    let errorCode = 5000;
+    let message = 'Internal server error';
+    let details = {};
 
     if (error instanceof AppError) {
-      return reply.status(error.statusCode).send({
-        status: error.code,
-        message: error.message || ErrorMessages[error.code],
-        details: error.details || {},
-      });
+      statusCode = error.statusCode;
+      errorCode = error.code;
+      message = error.message || ErrorMessages[error.code];
+      details = error.details || {};
+
+      // logger.error('API Error:', { error: error, context: request.url });
+    } else if (error instanceof ZodError) {
+      statusCode = 400;
+      errorCode = ErrorCodes.BAD_REQUEST;
+      message = 'Validation failed';
+      details = error.message;
     }
 
-    if (error instanceof ZodError) {
-      return reply.status(400).send({
-        status: ErrorCodes.BAD_REQUEST,
-        message: 'Validation failed',
-        details: error,
-      });
-    }
-
-    // Fallback to INTERNAL_SERVER_ERROR
-    reply.code(500).send({ status: 5000, message: 'Internal server error', details: {} });
+    // SEND THE SAME SHAPE AS THE SUCCESS HOOK
+    return reply.status(statusCode).send({
+      success: false,
+      data: null,
+      error: {
+        code: errorCode,
+        message: message,
+        details: details,
+      },
+    });
   });
 
   fastify.setNotFoundHandler((_request, reply) => {

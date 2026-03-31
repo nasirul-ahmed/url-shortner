@@ -7,14 +7,14 @@ module.exports = {
       exec_mode: 'cluster',
       env: {
         NODE_ENV: 'development',
-        PORT: 3000,
+        PORT: 4000,
         LOG_LEVEL: 'debug',
-        BASE_URL: 'http://localhost:3000',
+        BASE_URL: 'http://localhost:4000',
         MONGODB_URI: 'mongodb://127.0.0.1:27017/url-shortener',
       },
       env_production: {
         NODE_ENV: 'production',
-        PORT: 3000,
+        PORT: 4000,
       },
     },
   ],
