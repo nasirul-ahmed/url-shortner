@@ -116,7 +116,7 @@ export default async function (fastify: FastifyInstance) {
   // protected routes
   fastify.post(
     '/auth/refresh',
-    { preHandler: [fastify.authenticate] },
+    // { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       logger.info('/auth/refresh called', { data: { ...(request.body as any), cookies: request.cookies } });
 

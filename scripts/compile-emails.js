@@ -2,16 +2,27 @@ const mjml2html = require('mjml');
 const fs = require('fs');
 const path = require('path');
 
-const templateDir = path.join(__dirname, '../src/templates');
+const srcTemplateDir = path.join(__dirname, '../src/templates');
+const distTemplateDir = path.join(__dirname, '../dist/templates');
 
-fs.readdirSync(templateDir).forEach(file => {
+if (!fs.existsSync(distTemplateDir)) {
+  fs.mkdirSync(distTemplateDir, { recursive: true });
+}
+
+fs.readdirSync(srcTemplateDir).forEach(file => {
   if (file.endsWith('.mjml')) {
-    const mjmlContent = fs.readFileSync(path.join(templateDir, file), 'utf8');
-    const { html } = mjml2html(mjmlContent);
+    const mjmlPath = path.join(srcTemplateDir, file);
+    const mjmlContent = fs.readFileSync(mjmlPath, 'utf8');
     
-    // Save as .ejs so we can still use EJS variables like <%= name %>
+    const { html, errors } = mjml2html(mjmlContent, {
+      validationLevel: 'soft',
+    });
+
     const outputName = file.replace('.mjml', '.ejs');
-    fs.writeFileSync(path.join(templateDir, outputName), html);
-    console.log(`✅ Compiled: ${file} -> ${outputName}`);
+    const outputPath = path.join(distTemplateDir, outputName);
+
+    fs.writeFileSync(outputPath, html);
+    
+    console.log(`${file} -> dist/templates/${outputName}`);
   }
 });

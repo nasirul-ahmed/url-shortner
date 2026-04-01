@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
  * with sensible production defaults.
  */
 
-// dotenv.config();
+dotenv.config();
 
 export const config = {
   logs: {
@@ -63,8 +63,7 @@ export const config = {
   auth: {
     jwtSecret: process.env.JWT_SECRET || 'change-me-super-secret',
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
-    refreshTokenExpiresIn: process.env.REFRESH_EXPIRES_IN || '7d',
-    refreshTokenRollIntervalSeconds: 60 * 60 * 24, // rotate every day
+    refreshTokenExpiresIn: process.env.REFRESH_EXPIRES_IN || '30d',
     emailVerificationTokenExpirySeconds: 60 * 60 * 24,
     resetPasswordTokenExpirySeconds: 60 * 60,
   },

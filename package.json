@@ -6,7 +6,7 @@
   "scripts": {
     "gen:templates": "node ./scripts/compile-emails.js",
     "dev": "nodemon",
-    "build": "yarn gen:templates && tsc -noEmit && ts-node ./build.ts",
+    "build": "tsc -noEmit && ts-node ./build.ts && yarn gen:templates",
     "test": "jest",
     "prettier": "prettier --config ./.prettierrc.js --write \"src/**/*{.ts,.json}\"",
     "prettier:verify": "prettier --config ./.prettierrc.js --check \"src/**/*{.ts,.json}\"",

@@ -51,8 +51,6 @@ export async function createApp(logger: AppLogger): Promise<{
   //   }),
   // });
 
-  // src/loaders/fastify.ts
-
   fastify.addHook('preSerialization', async (request, reply, payload) => {
     if (payload && typeof payload === 'object' && 'success' in payload) {
       return payload;
