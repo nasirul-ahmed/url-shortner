@@ -46,7 +46,7 @@ export default async function (fastify: FastifyInstance) {
         btnUrl: `${config.app.baseUrl}/login`,
         subtext: 'You can now close this window.',
       });
-    } catch (error) {
+    } catch (error: any) {
       // on ERROR or EXPIRED send view accordingly
       return reply.view('email-verify-status.ejs', {
         status: 'error',

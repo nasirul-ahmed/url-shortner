@@ -31,7 +31,7 @@ export class UrlShortenerService {
     if (this.memCache.size >= this.MEM_CACHE_MAX) {
       // delete oldest entry (Maps preserve insertion order)
       const firstKey = this.memCache.keys().next().value;
-      this.memCache.delete(firstKey);
+      this.memCache.delete(firstKey!);
     }
     this.memCache.set(key, value);
   }
@@ -171,7 +171,7 @@ export class UrlShortenerService {
     };
 
     const [links, total] = await Promise.all([
-      UrlModel.find(query).sort({ clickCount: -1, createdAt: -1 }).skip(skip).limit(limit).lean(),
+      UrlModel.find(query).sort({ totalClicks: -1, createdAt: -1 }).skip(skip).limit(limit).lean(),
       UrlModel.countDocuments(query),
     ]);
 
@@ -190,7 +190,7 @@ export class UrlShortenerService {
     return returnData;
   }
 
-  public async dashboard(input: { startDate: string; endDate: string }, user: IUser) {
+  public async dashboard(input: { startDate: string; endDate: string }) {
     const start = input.startDate
       ? dayjs(input.startDate).startOf('day').toDate()
       : dayjs().subtract(7, 'days').startOf('day').toDate();
@@ -211,8 +211,8 @@ export class UrlShortenerService {
         $group: {
           _id: null,
           totalLinks: { $sum: 1 },
-          totalClicks: { $sum: '$clickCount' },
-          avgClicks: { $avg: '$clickCount' },
+          totalClicks: { $sum: '$totalClicks' },
+          avgClicks: { $avg: '$totalClicks' },
           uniqueVisitors: { $addToSet: '$longUrl' },
           activeLinksCount: {
             $sum: { $cond: [{ $eq: ['$isActive', true] }, 1, 0] },
@@ -254,7 +254,7 @@ export class UrlShortenerService {
       try {
         await UrlModel.create(data);
       } catch (err) {
-        this.logger.error('URL persistence failed', err);
+        this.logger.error('URL persistence failed', {error:err});
       }
     });
   }

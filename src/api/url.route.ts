@@ -3,15 +3,20 @@ import { Container } from 'typedi';
 import { shortCodeParamsValidation, shortenURLPayloadValidation } from '../utils/api-validation';
 import { ICreateUrlPayload } from '../interfaces';
 import { UrlShortenerService } from '../services/url.services';
-import { AnalyticsService } from '../services/analytics.service';
+import { AnalyticsDashboardService } from '../services/analytics-dashboard.service';
 import { AppLogger } from '../services/logger';
 import { AppError } from '../errors/AppError';
 import { ErrorCodes } from '../errors';
+import { Queue } from 'bullmq';
+import { JobIdEnums, AnalyticsJobData } from '../loaders/worker';
+import { extractIp, getGeoInfo, getDeviceInfo } from '../utils/geoDevice';
+import { generateVisitorId } from '../utils/visitor-id';
 
 export default async function (fastify: FastifyInstance) {
   const logger = Container.get(AppLogger);
   const urlService = Container.get(UrlShortenerService);
-  const analyticsService = Container.get(AnalyticsService);
+  const analyticsDashboardService = Container.get(AnalyticsDashboardService);
+  const analyticsQueue = Container.get('shorturl-queue') as Queue;
 
   // Create short URL (requires authentication)
   fastify.post(
@@ -38,10 +43,33 @@ export default async function (fastify: FastifyInstance) {
     const { shortCode } = shortCodeParamsValidation.parse(request.params);
 
     const longUrl = await urlService.resolveUrl(shortCode);
-    void analyticsService.processClick(shortCode);
 
-    // const longUrl = await this.redirectService.handleRedirect(shortCode);
-    // reply.code(200).send(longUrl);
+    // Collect analytics data asynchronously (fire-and-forget)
+    const ip = extractIp(request.headers, request.ip);
+    const userAgent = request.headers['user-agent'] || '';
+    const referer = request.headers.referer || request.headers.referrer as string;
+
+    const geoInfo = getGeoInfo(ip);
+    const deviceInfo = getDeviceInfo(userAgent);
+    const visitorId = generateVisitorId(ip, userAgent);
+
+    const analyticsData: AnalyticsJobData = {
+      shortCode,
+      originalUrl: longUrl,
+      metadata: {
+        ip,
+        userAgent,
+        referer,
+        country: geoInfo.country,
+        device: deviceInfo.device,
+        platform: deviceInfo.platform,
+        browser: deviceInfo.browser,
+        visitorId,
+      },
+      timestamp: new Date(),
+    };
+
+    void analyticsQueue.add(JobIdEnums.PROCESS_CLICK_ANALYTICS, analyticsData);
 
     reply.redirect(longUrl);
   });
@@ -78,9 +106,40 @@ export default async function (fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       logger.info('/dashboard api called ==> ');
 
-      const result = await urlService.dashboard(request.query as { startDate: string; endDate: string }, request.user);
+      const result = await urlService.dashboard(request.query as { startDate: string; endDate: string });
 
       return result;
+    },
+  );
+
+  fastify.get(
+    '/analytics/:shortCode',
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { shortCode } = shortCodeParamsValidation.parse(request.params);
+      const { days = 30 } = request.query as { days?: number };
+
+      logger.info('/analytics api called', {data: { shortCode, days }});
+
+      const analytics = await analyticsDashboardService.getAnalytics(shortCode, days);
+      return analytics;
+    },
+  );
+
+  fastify.get(
+    '/analytics',
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { days = 30 } = request.query as { days?: number };
+
+      logger.info('/analytics api called');
+
+      const analytics = await analyticsDashboardService.getOverallAnalytics(days);
+      return analytics;
     },
   );
 }

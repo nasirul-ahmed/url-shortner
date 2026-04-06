@@ -31,7 +31,7 @@ const UrlSchema = new Schema<IUrlModel>(
       default: true,
       index: true,
     },
-    clickCount: {
+    totalClicks: {
       type: Number,
       default: 0,
     },
@@ -49,7 +49,7 @@ const UrlSchema = new Schema<IUrlModel>(
     versionKey: false,
     // Optimize reads - we mostly need shortCode + longUrl
     toJSON: {
-      transform: (_doc, ret) => {
+      transform: (_doc, ret: any) => {
         ret['id'] = ret._id?.toString();
         delete ret._id;
         return ret;

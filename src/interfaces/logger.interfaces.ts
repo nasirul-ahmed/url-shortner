@@ -1,3 +1,5 @@
+// Logger interfaces
+
 export interface ILoggerPayload {
   readonly context?: string;
   readonly data?: Record<string, unknown>;

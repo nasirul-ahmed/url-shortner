@@ -36,6 +36,10 @@ export default async ({
       model: require('../models/url.model').default,
     },
     {
+      name: 'analyticsModel',
+      model: require('../models/analytics.model').AnalyticsModel,
+    },
+    {
       name: 'sessionModel',
       model: require('../models/session.model').SessionModel,
     },

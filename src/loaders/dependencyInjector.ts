@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import Container from 'typedi';
 import { AppLogger } from '../services/logger';
-import { AnalyticsService } from '../services/analytics.service';
+import { AnalyticsDashboardService } from '../services/analytics-dashboard.service';
 import { SocketService } from '../services/socket.service';
 import { UrlShortenerService } from '../services/url.services';
 import { AuthService } from '../services/auth.service';
@@ -27,7 +27,7 @@ export async function initializeDependencies({
   Container.get(LocalCacheService);
   Container.get(UrlShortenerService);
   Container.get(SocketService);
-  Container.get(AnalyticsService);
+  Container.get(AnalyticsDashboardService);
   Container.get(SessionService);
   Container.get(AuthService);
 

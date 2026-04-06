@@ -7,7 +7,7 @@ export interface IUrlDocument {
   expiresAt?: Date;
   userId?: string;
   isActive: boolean;
-  clickCount: number;
+  totalClicks: number;
 }
 
 export interface ICreateUrlPayload {
@@ -23,10 +23,4 @@ export interface ICreateUrlResult {
   shortUrl: string;
   longUrl: string;
   createdAt: Date;
-}
-
-export interface IUrlCacheEntry {
-  shortCode: string;
-  longUrl: string;
-  expiresAt?: number; // Unix timestamp ms — matches Date.now() comparisons
 }

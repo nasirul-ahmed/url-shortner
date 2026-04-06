@@ -11,6 +11,7 @@ module.exports = {
         LOG_LEVEL: 'debug',
         BASE_URL: 'http://localhost:4000',
         MONGODB_URI: 'mongodb://127.0.0.1:27017/url-shortener',
+        VISITOR_ID_SALT: 'dev-salt-change-in-production',
       },
       env_production: {
         NODE_ENV: 'production',

@@ -7,7 +7,7 @@ const blurProperty = (d: any): string => '***';
 
 const isStream = (st: any): boolean => st !== null && typeof st === 'object' && typeof st.pipe === 'function';
 
-const hideSensitive = (data: unknown, sensitiveMap: ISensitiveMap, depth = 0, maxDepth = 2): unknown => {
+const hideSensitive = (data: any, sensitiveMap: ISensitiveMap, depth = 0, maxDepth = 2): unknown => {
   if (depth >= maxDepth) return `max depth exceeded, depth: ${depth}`;
   if (data?.['acceptsEncodings']) return '[Request]';
   if (data?.['sendStatus']) return '[Response]';
@@ -90,6 +90,6 @@ export const parseMaxAge = (duration: string): number => {
   return numValue * (multipliers[unit] || 1);
 };
 
-export const convertToObjectId = (data) => {
+export const convertToObjectId = (data: any) => {
   return new Types.ObjectId(data);
 };

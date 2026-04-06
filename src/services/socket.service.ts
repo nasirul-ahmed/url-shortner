@@ -1,9 +1,11 @@
 import { Service, Inject } from 'typedi';
 import { Server as SocketIOServer } from 'socket.io';
 import { AppLogger } from './logger/app-logger';
-import { ISocketClickPayload, ISocketStatsPayload } from '../interfaces/analytics.interfaces';
+import { ISocketStatsPayload } from '../interfaces/analytics.interfaces';
+import { AnalyticsDashboard } from '../interfaces/analytics.interfaces';
 import { SOCKET_IO_SERVER } from '../loaders/socket-io';
 import { getStatsRoom } from '../utils/helper';
+import dayjs from 'dayjs';
 
 @Service()
 export class SocketService {
@@ -53,8 +55,16 @@ export class SocketService {
     const room = getStatsRoom(shortCode);
     this.logger.debug('Broadcasting stats update', { data: { room } });
     this.io.to(room).emit('stats_update', {
-      shortCode,
       ...stats,
+      timestamp: this.getTimestamp(),
+    });
+  }
+
+  public emitAnalyticsStats(shortCode: string, analytics: any): void {
+    const room = getStatsRoom(shortCode);
+    this.logger.debug('Broadcasting analytics stats', { data: { room, shortCode } });
+    this.io.to(room).emit('analytics_stats', {
+      ...analytics,
       timestamp: this.getTimestamp(),
     });
   }
