@@ -1,4 +1,4 @@
-FROM node:24-bookworm AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 COPY package.json yarn.lock ./
@@ -7,7 +7,7 @@ COPY . .
 RUN yarn build
 
 
-FROM node:24-bookworm AS runner
+FROM node:24-alpine AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
